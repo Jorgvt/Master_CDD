@@ -1,0 +1,198 @@
+---
+title: "R & RStudio."
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+  pdf_document:
+    toc: yes
+date: '`r Sys.Date()`'
+---
+
+* Document based in:
+    + R Programming Course Notes from Xing Su
+    + WikiBooks R Programming
+    + RStudio, de Laura del Río Alonso y Antonio Maurandi López
+    
+# Overview and History of R
+
+* **R** = dialect of the **S** language
+    * S was developed by John Chambers @ Bell Labs
+    * initiated in 1976 as internal tool, originally FORTRAN libraries
+    * 1988 rewritten in C (version 3 of language)
+    * 1998 version 4 (what we use today)
+* **History of S**
+    * Bell labs $\rightarrow$ insightful $\rightarrow$ Lucent $\rightarrow$ Alcatel-Lucent
+    * in 1998, S won the Association for computing machinery’s software system award
+* **History of R**
+    * 1991     created in New Zealand by Ross Ihaka & RobertGentleman
+    * 1993     first announcement of R to public
+    * 1995     Martin Machler convinces founders to use GNU General Public license to make R free
+    * 1996     public mailing list created R-help and R-devel
+    * 1997     R Core Group formed
+    * 2000     R v1.0.0 released
+* **R Features**
+    * Syntax similar to S, semantics similar to S, runs on any platforms, frequent releasees
+    * lean software, functionalities in modular packages, sophisticated graphics capabilities
+    * useful for interactive work, powerful programming language
+    * active user community and ***FREE*** (4 freedoms)
+         * freedom to run the program
+         * freedom to study how the program works and adapt it
+         * freedom to redistribute copies
+         * freedom to improve the program
+* **R Drawbacks**
+    * 40 year-old technology
+    * little built-in support for dynamic/3D graphics
+    * functionality based on consumer demand
+    * objects generally stored in physical memory (limited by hardware)
+* **Design of the R system**
+    * 2 conceptual parts: base R from CRAN vs. everything else
+    * functionality divided into different packages
+         * **base R** contains core functionality and fundamental functions
+         * other utility packages included in the base install: `util`, `stats`, `datasets`, ...
+         * Recommended packages: `bootclass`, `KernSmooth`, etc
+    * 5000+ packages available
+
+
+# RStudio. Una GUI para R multiplataforma
+
+RStudio: es un entorno libre y de código abierto para el desarrollo integrado (IDE) de R. Se puede ejecutar en el escritorio (Windows, Mac o Linux) o incluso a través de Internet mediante el servidor RStudio.
+
+Entre otras cosas encontramos que RStudio:
+
+* Nos permite abrir varios scripts a la vez
+* Nos permite ejecutar trozos de código con sólo marcarlo en los scripts
+* Nos muestra el workspace
+* Nos muestra el historial
+* Nos muestra los objetos del workspace
+* Integra la ayuda
+* Integra la gestión de librerías
+* etc.
+
+Este documento ha sido generado con la versión `r version$version.string` y ofrece una gran integración con ficheros en diversos formatos: R scripts (.R), markdown (md), Rmarkdown (.Rmd), \(\LaTeX\) (.txt), .. que posibilitan desarrollar cómodamente investigación reproducirle gracias al paquete knitr de Yihui Xie. 
+
+# Lenguaje R
+
+R es un potente lenguaje orientado a objetos y destinado al análisis estadístico y la representación de datos. Se trata de software libre que permite su utilización libre y gratuitamente. La comunidad científica internacional lo ha elegido como la lingua franca del análisis de datos. Y tiene una gran implantación en universidades y cada vez más en mundo empresarial.
+
+## Ayuda en R
+
+Funciones de ayuda en R
+
+* `help.start()` 	Ayuda general 	
+* `help(mean)` o `?mean` 	Función de ayuda 	
+* `help.search("mean")` `RSiteSearch("mean")` 	Ayuda online 	
+* `apropos("mean", mode ="function")`	Lista todas las funciones que contienen mean en el nombre
+* `data()` 	Muestra los conjuntos de datos de ejemplo que hay disponibles 	
+
+
+
+## Espacio y directorio de trabajo
+
+El “workspace” es el espacio de trabajo en que se incluyen todos los objetos definidos por el usuario (ya veremos qué son estos objetos, que incluyen variables, vectores, dataframes…), se almacena en memoria intermedia mientras trabajas con R.
+
+Cuando termina una sesión de R el propio R te pregunta si quieres guardar el “workspace” para usos futuros. Este espacio, “workspace”, se recarga al volver a iniciar la sesión. Directorio de trabajo o “working directory” es el directorio donde por defecto “lee” R. También es donde guardará el workspace al finalizar la sesión y donde buscará un workspace guardado al inicio. Si quieres que R lea un fichero que no esté en “working directory” hay que especificar la ruta completa.
+
+Funciones para manejar el “workspace”:
+
+* `getwd()` = return current working directory
+* `setwd()` = set current working directory
+* `?function` = brings up help for that function
+* `dir.create("path/foldername", recursive = TRUE)` = create directories/subdirectories
+* `unlink(directory, recursive = TRUE)` = delete directory and subdirectories
+* `ls()` = list all objects in the local workspace
+* `list.files(recursive = TRUE)` = list all, including subdirectories
+* `args(function)` = returns arguments for the function
+* `file.create("name")` = create file
+    * `.exists("name")` = return true/false exists in working directory
+    * `.info("name")` = return file info
+    * `.info("name")$property` = returns value for the specific attribute
+    * `.rename("name1", "name2")` = rename file
+    * `.copy("name1", "name2")` = copy file
+    * `.path("name1")` = return path of file
+
+## R Console and Evaluation
+
+* `<-` = assignment operator
+* `#` = comment
+* expression is evaluated after hitting `enter` and result is returned
+* autoprinting occurs when you call a variable
+    * `print(x)` = explicitly printing
+* `[1]` at the beginning of the output = which element of the vector is being shown
+
+## Scripts
+
+En R trabajamos habitualmente con scripts. Para cargar un fichero con instrucciones, un script, empleamos la función source().
+
+```{r, eval=FALSE}
+source( "fichero_de_comandos.R" )
+```
+
+**Ejercicio. Aplica la función `source()` al fichero `HolaMundo.R`**
+
+## Librerías R o Packages
+
+Con la instalación simple de R tenemos muchísimas posibilidades, no obstante existen multitud de módulos opcionales que llamamos paquetes, packages. Los paquetes son colecciones de funciones y datos.
+
+Por defecto, R viene, al menos, con las librerías `base` :
+
+* base
+* compiler
+* datasets
+* graphics
+* grDevices
+* grid
+* methods,
+* parallel
+* splines
+* stats
+* stats4
+* tcltk
+* utils
+
+Para ver qué paquetes tienes instalados empleamos la función `library()`. No es lo mismo instalar que cargar un paquete. La instrucción `search()` nos dice que paquetes están instalados y cargados en el sistema listos para usarse.
+
+```{r}
+search()
+```
+
+Instalamos un paquete con la instrucción `install.packages("nombre_paquete")`, sólo instalamos una vez cada paquete, cargamos el paquete con la instrucción `library("nombre_paquete")` y tendremos que ejecutar este comando en cada sesión en que queramos emplear dicho paquete. Para descargar el paquete utilizamos `detach("package:nombre_paquete")`
+
+```{r, eval=FALSE}
+install.packages("foreign")  
+library("foreign") 
+search()
+detach("package:foreign")
+search()
+```
+
+Los paquetes disponibles están en `CRAN (The Comprehensive R Archive Network)`, específicamente en http://cran.r-project.org/.
+
+Normalmente son necesarios más paquetes que los que vienen por defecto, así que siempre se está instalando paquetes nuevos. En este curso veremos algunos de los más usuales.
+
+* [Contributed Packages](https://cran.r-project.org/)(https://cran.r-project.org/
+* [Most popular packages](http://source("https://bioconductor.org/biocLite.R")
+biocLite("graph")crantastic.org/) http://crantastic.org/
+* [Recommended Packages](https://support.rstudio.com/hc/en-us/articles/201057987-Quick-list-of-useful-R-packages)
+* [Tidyverse](https://www.tidyverse.org/)
+    + [Tidyverse packages](https://www.tidyverse.org/packages/)
+
+Para obtener información sobre un paquete empleamos la función help( package = "nombre_del_paquete" ).
+
+## Instalar de otras fuentes 
+
+Además de los paquetes disponibles en CRAN, es posible instalar paquetes o código válido desde otras fuentes. Habitualmente se descargan de Internet y se cargan descomprimiendo el archvio comprimido en la carpeta de librerías R del sistema o con `source(nombre_fichero)`. Un caso especial es las librerías de `Bioconductor.org` por que han creado su propio intalador de paquetes. 
+
+```{r, eval=FALSE}
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("graph")
+```
+
+Instalar desde GitHub 
+
+```{r, eval=FALSE}
+# install.packages("devtools") 
+devtools::install_github("hadley/forcats")
+```
+

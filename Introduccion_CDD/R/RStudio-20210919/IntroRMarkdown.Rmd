@@ -1,0 +1,84 @@
+---
+title: "RMarkdown Marks"
+author: "Antuan"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    fig_height: 3
+    fig_width: 3
+    number_sections: yes
+    toc: yes
+---
+
+Plain text
+
+End a line with two spaces to start a new paragraph.
+
+ *italics* and _italics_
+ 
+ **bold** and __bold__
+ 
+ superscript^2^
+ 
+ ~~strikethrough~~
+ 
+ [link](www.rstudio.com)
+ 
+# Header 1
+ 
+## Header 2
+ 
+### Header 3
+ 
+#### Header 4
+ 
+##### Header 5
+ 
+###### Header 6
+ 
+endash: --
+
+ellipsis: ... 
+
+inline equation: $A = \pi*r^{2}$
+ 
+image: ![](./smallorb.jpg)
+
+horizontal rule (or slide break):
+ 
+***
+ 
+> block quote
+ 
+* unordered list
+* item 2
+    + sub-item 1
+    + sub-item 2
+1. ordered list
+2. item 2
++ sub-item 1
++ sub-item 2
+ 
+Table Header  | Second Header
+------------- | -------------
+Table Cell    | Cell 2
+Cell 3        | Cell 4
+
+
+Make a code chunk with three back ticks followed by an r in braces. End the chunk with three back ticks:
+ 
+```{r}
+paste("Hello", "World!")
+```
+
+Place code inline with a single back ticks. The
+first back tick must be followed by an R, like
+this `r paste("Hello", "World!")`.
+
+Add chunk options within braces. For example, `echo=FALSE` will prevent source code from being displayed:
+ 
+```{r eval=TRUE, echo=FALSE}
+paste("Hello", "World!")
+```
+
+
