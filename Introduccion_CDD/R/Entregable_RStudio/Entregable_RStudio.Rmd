@@ -1,0 +1,52 @@
+---
+title: "Entregable_RStudio"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    number_sections: yes
+  html_document:
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd('./') # './' representa el directorio actual, pero podríamos utilizar cualquiera. Es un argumento obligatorio
+getwd() # Devuelve el directorio de trabajo
+list.files(recursive = TRUE) # Muestra los archivos que hay en el directorio de trabajo
+x<-3 # Asignamos 3 a la variable x
+# x es una variable
+print(x) # Mostramos el valor de la variable x
+ls() # Muestra las variables creadas en el  entorno de trabajo
+```
+
+```{r}
+library(vcd)
+library(forcats)
+```
+
+Podemos generar 1000 muestras de una distribución normal de $\mu=1$ y $\sigma^{2}=3$ con la función `rnorm`. Hay que tener en cuenta que esta función espera como parámetros la media ($\mu$), y la desviación estándar ($\sigma$), por lo que $\sigma^{2}=3 \implies \sigma=\sqrt{3}$.
+
+```{r}
+x <- rnorm(1000, 1, sqrt(3))
+```
+
+Ahora se puede ver que el valor medio de la variable`x` es `r mean(x)`, por lo que la distribución ha sido generada correctamente.
+El valor no es exactamente 1 porque hemos cogido solamente 1000 muestras, pero aún así se acerca mucho. Es posible hacer una representación sencilla de cuántas muestras tendríamos que coger para obtener un valor medio más cercano a 1.
+
+```{r}
+means <- c()
+for (n in seq(10,100000,1000)){
+  sample <- rnorm(n, 1, sqrt(3))
+  mean_sample <- mean(sample)
+  means <- c(means, mean_sample) 
+}
+plot(seq(10,100000,1000), means,
+     xlab="Samples", ylab="Mean")
+abline(h=1, col="red")
+```
+
+
