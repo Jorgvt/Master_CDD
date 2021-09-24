@@ -1,0 +1,225 @@
+---
+title: "Collatz"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Secuencia de Collatz
+Empezamos escribiendo un chunk que genere la secuencia de Collatz. Para comprobar que lo hemos hecho bien podemos utilizar que la secuencia correspondiente a `N=3` es `3 10 5 16 8 4 2 1`:
+
+```{r}
+N <- 5
+# Introducimos el primer número de la secuencia en la lista de resultados
+result <- c(N)
+while (N!=1){
+  # Comprobamos si es par con la operacion módulo
+  if (N%%2==0){
+    N <- N/2
+  } else{
+    N <- N*3+1
+  }
+  # Añadimos el nuevo valor de N a la secuencia
+  result <- c(result, N)
+}
+NSec <- length(result)
+```
+
+# Mostrar y comprobar resultado
+Podemos mostrar el resultado del chunk anterior con las funciones `show()` o `print()` para comprobar el resultado. La función `cat()` permite concatenar diferentes strings y variables para formatear las salidas como queramos.
+```{r}
+cat('La longitud de la secuencia generada es:',NSec,'\n')
+print(result)
+```
+# Almacenar los resultados
+En el apartado anterior ya nos hemos adelantado almacenando los datos en un vector que se va creando mientras se calcula la secuencia, pero esto tiene una parte negativa. Siempre es más eficiente rellenar un vector de un tamaño dado que ir aumentando el tamaño de este vector. Podemos realizar un par de modificaciones al código para crear primero un vector de `1000` elementos (`Secuencia`) que iremos rellenando conforme se calcule la secuencia, después solamente tendremos que indexarlo correctamente.
+
+```{r}
+N <- 3
+# Obligamos a que N sea entero
+N <- as.integer(N)
+
+# Creamosla secuencia vacía que servirá para almacenar los resultados
+# e introducimos N en la primera posición
+Secuencia <- integer(length=1000)
+Secuencia[1] <- N
+
+# Creamos un índice que nos servirá para llenar la secuencia.
+# Empezamos en 2 porque ya hemos llenado antes la primera posición.
+i <- 2
+
+while (N!=1){
+  # Comprobamos si es par con la operacion módulo
+  if (N%%2==0){
+    N <- N/2
+  } else{
+    N <- N*3+1
+  }
+  # Añadimos el nuevo valor de N a la secuencia
+  Secuencia[i] <- N
+  i <- i+1
+}
+```
+Podemos ver que si utilizamos un número muy grande como `N=1424652103065`, obtenemos un error porque R está restringido a enteros menores que `2147483648`. Una cosa curiosa es que, si no lo forzamos a ser entero podemos ver que el vector pre-creado se hace más grande para alojar la secuencia aunque sea más larga de 1000 elementos.
+```{r}
+N <- 1424652103065
+# Obligamos a que N sea entero
+N <- as.integer(N)
+
+# Creamosla secuencia vacía que servirá para almacenar los resultados
+# e introducimos N en la primera posición
+Secuencia <- integer(length=1000)
+Secuencia[1] <- N
+
+# Creamos un índice que nos servirá para llenar la secuencia.
+# Empezamos en 2 porque ya hemos llenado antes la primera posición.
+i <- 2
+
+while (N!=1){
+  # Comprobamos si es par con la operacion módulo
+  if (N%%2==0){
+    N <- N/2
+  } else{
+    N <- N*3+1
+  }
+  # Añadimos el nuevo valor de N a la secuencia
+  Secuencia[i] <- N
+  i <- i+1
+}
+```
+
+```{r}
+N <- 1424652103065
+# Obligamos a que N sea entero
+
+# Creamosla secuencia vacía que servirá para almacenar los resultados
+# e introducimos N en la primera posición
+Secuencia <- integer(length=1000)
+Secuencia[1] <- N
+
+# Creamos un índice que nos servirá para llenar la secuencia.
+# Empezamos en 2 porque ya hemos llenado antes la primera posición.
+i <- 2
+
+while (N!=1){
+  # Comprobamos si es par con la operacion módulo
+  if (N%%2==0){
+    N <- N/2
+  } else{
+    N <- N*3+1
+  }
+  # Añadimos el nuevo valor de N a la secuencia
+  Secuencia[i] <- N
+  i <- i+1
+}
+print(length(Secuencia))
+```
+Para seleccionar los valores correspondientes a la secuencia nos quedamos con los que son diferentes de 0:
+```{r}
+N <- 3
+# Obligamos a que N sea entero
+N <- as.integer(N)
+
+# Creamosla secuencia vacía que servirá para almacenar los resultados
+# e introducimos N en la primera posición
+Secuencia <- integer(length=1000)
+Secuencia[1] <- N
+
+# Creamos un índice que nos servirá para llenar la secuencia.
+# Empezamos en 2 porque ya hemos llenado antes la primera posición.
+i <- 2
+
+while (N!=1){
+  # Comprobamos si es par con la operacion módulo
+  if (N%%2==0){
+    N <- N/2
+  } else{
+    N <- N*3+1
+  }
+  # Añadimos el nuevo valor de N a la secuencia
+  Secuencia[i] <- N
+  i <- i+1
+}
+result <- Secuencia[Secuencia!=0]
+result
+```
+Si queremos almacenar la longitud de la secuencia podemos utilizar la función `length()`:
+```{r}
+NSec <- length(result)
+NSec
+```
+
+
+# Podemos definir esto dentro de una función por comodidad:
+```{r}
+Collatz <- function(N){
+  N <- as.integer(N)
+  Secuencia <- integer(length=1000)
+  Secuencia[1] <- N
+  i <- 2
+  while (N!=1){
+    # Comprobamos si es par con la operacion módulo
+    if (N%%2==0){
+      N <- N/2
+    } else{
+      N <- N*3+1
+    }
+    # Añadimos el nuevo valor de N a la secuencia
+    Secuencia[i] <- N
+    i <- i+1
+  }
+  result <- Secuencia[Secuencia!=0]
+  return(result)
+}
+```
+
+Y la utilizamos para comprobar que obtenemos lo mismo que antes:
+```{r}
+Collatz(5)
+```
+Ahora que sabemos que funciona correctamente podemos utilizar un bucle `for` para obtener las secuencias correspondientesa los valores $[1,20]$:
+```{r}
+for (n in seq(1,20)){
+  print(Collatz(n))
+}
+```
+
+# Función `apply`.
+
+En lugar de utilizar un bucle `for` para calcular las secuenciias de Collatz de varios números podemos utilizar la función `apply` para hacerlo más eficientemente. Hay que tener en cuenta que `apply` espera que los datos sean un `array` o una `matrix` porque utiliza la función `dim` sobre ellos.
+```{r}
+results_apply <- apply(matrix(seq(1:1000)), MARGIN=1, FUN='Collatz')
+```
+Resulta interesante comprobar que el resultado de `apply` es una `list` que contiene las diferentes secuencias:
+```{r}
+typeof(results_apply)
+```
+# Podemos nombrar fácilmente los elementos de esta lista:
+
+```{r}
+names(results_apply) <- paste0('Sec', 1:length(results_apply))
+results_apply[10]
+```
+Existe una variante de la función `apply` que permite aplicar una función sobre todos los elementos de una lista, `lapply`. La utilizaremos para obtener la longitud de cada una de las secuencias que hemos calculado y representarlas. El resultado de `lapply` es otra lista por lo que tendremos que transformarla en vector para poder representarla utilizando la función `unlist`:
+```{r}
+sequences_lengths <- lapply(results_apply, 'length')
+LonSec <- unlist(sequences_lengths)
+maxLon <- max(LonSec)
+# Obtenemos el índice correspondiente con la función match para poder plotearlo
+idxMax <- match(max(LonSec), LonSec)
+```
+La secuencia de mayor longitud se genera con el número `r idxMax`, y tiene una longitud de `r maxLon` elementos.
+```{r}
+plot(LonSec,
+     main='Longitud de la secuencia de Collatz',
+     xlab='N', ylab='Longitud de la secuencia')
+points(idxMax, maxLon, pch=21, col='red', bg='red')
+```
+
