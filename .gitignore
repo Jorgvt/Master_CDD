@@ -2,5 +2,5 @@
 *pdf
 *__MACOSX
 *ipynb_checkpoints
-.Rproj.user
-.html
+*.Rproj.user
+*.html
