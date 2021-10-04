@@ -1,0 +1,99 @@
+---
+title: "Entregable Funciones"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+header-includes:
+  - \usepackage[explicit]{titlesec}
+  - \titleformat{\section}{\normalfont\Large\bfseries}{}{0em}{\thesection. {#1}\ }
+subparagraph: yes
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Funciones auxiliares
+
+La función `J` que queremos definir debe calcular y devolver diferentes cantidades. Para facilitar el uso es recomendable escribir cada cantidad como una función independiente que será llamada más adelante desde la función `J`. En realidad, si solamente pensamos llamarlas desde la función J podríamos definirlas dentro de la propia definición de `J`, pero dado que son funciones bastante generales creemos conveniente definirlas como funciones independientes para que puedan ser utilizadas en más contextos. Como podemos ver, las funciones tampoco son especialmente complicadas:
+
+```{r}
+ME <- function(data){
+  return(sum(data)/length(data))
+}
+
+MAE <- function(data){
+  return(sum(abs(data))/length(data))
+}
+
+RMSE <- function(data){
+  return(sqrt(sum(data^2)/length(data)))
+}
+
+CV.MAE <-function(data){
+  return(MAE(data)/ME(data))
+}
+
+CV.RMSE <- function(data){
+  return(RMSE(data)/ME(data))
+}
+
+```
+
+# Definición de `J`
+
+A la hora de definir `J` tenemos que tener en cuenta dos cosas: 
+
+ 1. Queremos que devuelva una lista cuyos elementos deben estar nombrados.
+ 
+ 2. Queremos que devuelva diferentes cosas en función del valor de `ME`, por lo
+ que tendremos que utilizar un `if`.
+
+Aprovecharemos que las listas permiten añadir elementos después de su creación para simplificar el código.
+
+```{r}
+J <- function(data){
+  results <- list(
+    ME = ME(data),
+    MAE = MAE(data),
+    RMSE = RMSE(data)
+  )
+  if (results['ME'] != 0){
+    results['CV.MAE'] = CV.MAE(data)
+    results['CV.RMSE'] = CV.RMSE(data)
+  }
+  return(results)
+}
+```
+
+# Comprobación
+
+Podemos comprobar si hemos construido la función correctamente aplicandola para los dos casos diferentes:
+
+  1. Vectores con media 0
+  
+  2. Vectores con media diferente de 0
+  
+## Vectores con media 0
+
+```{r}
+J(-10:10)
+```
+
+## Vectores con media diferente de 0
+
+```{r}
+J(-5:10)
+```
+
+Como se puede ver, se corresponden con los valores que se incluyen en el enunciado del ejercicio.
