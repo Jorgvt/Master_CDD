@@ -1,0 +1,328 @@
+---
+title: "ExamenR - Jorge Vila Tomás"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+header-includes:
+  - \usepackage[explicit]{titlesec}
+  - \titleformat{\section}{\normalfont\Large\bfseries}{}{0em}{\thesection. {#1}\ }
+subparagraph: yes
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Comandos y tipos
+Dados los vectores `X1, X2, X3 y X4`,
+```{r}
+X1<-c('FALSE','TRUE')
+X2<-c(as.numeric(X1),0L,1L)
+X3<-c(X1,X2,"a","b","c","d") 
+X4<-as.numeric(X3)
+```
+* Determina la clase de cada objeto y **justificala**:
+Podemos determinar la clase de cada objeto utilizando la función `class()`.
+
+`X1` es de tipo `character` porque los elementos, aunque pueden parecer booleanos, están dispuestos entre comillas. Esto los convierte en caracteres.
+```{r}
+class(X1)
+```
+
+`X2` es de tipo `numeric` porque está compuesto de la transformación en `numeric` de `X1` y de 2 enteros más. Hay que tener en cuenta que al hacer la transformación de `X1` lo que se obtienen son 2 `NA`s, que no aportan nada al tipo del vector.
+```{r}
+class(X2)
+```
+
+`X3` se crea a partir de la combinación de `X1` con `X2` y con más caracteres, esto hace que la clase del objeto entero sea también `character`. Este comportamiento se ve siempre que se juntan caracteres con otro tipo de datos porque el `character` es el tipo de dato más genérico y los transforma todos en ese cuando es posible. Además, que `X1` también estaba compuesto por caracteres.
+```{r}
+class(X3)
+```
+
+Finalmente, con `X4` pasa lo mismo que pasaba con `X2`. **R** intenta transformar todos los elementos en números y los que no puede transformar los deja como `NA`s, que no aportan ni cambian la clase del vector.
+```{r}
+class(X4)
+```
+
+* Indica por qué `X1` no es de tipo **logical**:
+`X1` es de tipo `character` porque los elementos, aunque pueden parecer booleanos, están dispuestos entre comillas. Esto los convierte en caracteres.
+
+* Explica por qué `X2` contiene valores `NA`:
+`X2` contiene valores `NA` porque R no es capaz de transformar en números los elementos de `X1`, así que los pone como `NA`.
+
+* Explica por qué `dim()` no devuelve las dimensiones del vector `X4`:
+`dim()` no devuelve las dimensiones del vector `X4` porque los vectores en R no tienen ninguna dimensión (también se podría decir que siempre son unidimensionales y no por tanto no tienen definida dimensión). Si quisieramos obtener su longitud tendríamos que utilizar la función `length()`. Es curioso ver que si transformamos el vector en un `array` sí que podemos obtener su dimensión con `dim()`:
+```{r}
+dim(X4)
+length(X4)
+dim(as.array(X4))
+```
+
+* Transforma `X4` en la matriz `M`:
+```{r}
+M <- matrix(X4, nrow=2, byrow = FALSE)
+M
+```
+
+* Crea una nueva matriz `M.sin.NA` donde se eliminen aquellas columnas que contengan `NA`. La solución debe ser **genérica**, no es válido específicar directamente el número de columna. Comprueba el funcionamiento con la matriz siguiente:
+
+Podemos utilizar la función `is.na()` para encontrar los elementos `NA`, esto nos devuelve una matriz booleana. Podemos invertirla con `!` para marcar como `TRUE` los valores no nulos y utilizamos `colSums()` para sumar la cantidad de elementos de cada columna que no son `NA`. Ahora tenemos que comprobar que este número es igual al número de filas de la matriz para evitar coger columnas que contienen solo algún elemento con `NA` y no toda la columna completa. Una vez hecho esto podemos utilizar `as.logical()` sobre este vector para transformar en `FALSE` los 0 y en `TRUE` los distintos a 0. Con este vector final podemos indexar la matriz original para obtener una nueva matriz pero sin las columnas que contienen `NA`.
+```{r}
+M.sin.NA <- M[, as.logical(colSums(!is.na(M))==nrow(M))]
+M.sin.NA
+```
+
+Lo comprobamos con otra matriz:
+```{r}
+M <- c(1, NA, NA, 1, NA, 3, NA, 33)
+M <- matrix(M, nrow = 2, byrow = TRUE)
+M
+M.sin.NA <- M[, as.logical(colSums(!is.na(M))==nrow(M))]
+M.sin.NA
+```
+
+# Funciones
+1. Genera la variable `t`, como un vector en el intervalo 10 y 15 con `N=1000` valores equiespaciados.
+Esto lo conseguimos fácilmente con la función `seq()`:
+```{r}
+t <- seq(10, 15, length.out=1000)
+paste0("La variable t empieza en ", t[1], " y acaba en ", t[length(t)], ". Tiene ", length(t), " elementos.")
+```
+
+2. Genera las secuencias $x$ e $y$ para $f_x=1$, $f_y=1$, $\delta =\pi/4$. Almacena `t`, `x` e `y` en un dataframe llamado `Data.Fig1` cuyas columnas se llamen `t`, `x`, `y` respectivamente.
+```{r}
+# Definimos los valores dados
+fx <- 1
+fy <- 1
+delta <- pi/4
+
+# Calculamos las secuencias correspondientes
+x <- cos(2*pi*fx*t)
+y <- sin(2*pi*fy*t + delta)
+
+# Almacenamos en un dataframe
+Data.Fig1 <- data.frame(list(t=t, x=x, y=y))
+Data.Fig1
+```
+
+3. Se desea realizar figuras para las combinaciones de parámetros que se indican en la Tabla:
+* Genera un `data.frame` llamado `Params` con los valores de la Tabla:
+```{r}
+fx <- c(1, 2, 1, 2, 1)
+fy <- c(1, 2, 3, 1, 2)
+delta <- c(0, -pi/4, pi/2, -3*pi/4, pi)
+N <- c(900, 800, 700, 600, 500)
+
+Params <- data.frame(fx=fx, fy=fy, delta=delta, N=N)
+Params
+```
+
+* Escribe una función `Lissajous(fx,fy,delta, t_ini, t_fin, N)` que al llamarla devuelva un `data.frame` con los valores de `x` e `y` donde el resto de parámetros son seleccionables por el usuario. Los **valores por defecto** de estas variables serán **2, 1, 0.5, 3800** respectivamente.
+```{r}
+Lissajous <- function(fx = 2, fy = 1, delta = 0.5, t_ini = 10, t_fin = 15, N= 3800){
+  t <- seq(10, 15, length.out=N)
+  x <- cos(2*pi*fx*t)
+  y <- sin(2*pi*fy*t + delta)
+  return(list(t=t, x=x, y=y))
+}
+```
+
+* Llama a la función creada en el apartado anterior con los datos almacenados en `Params`, para generar los `data.frame`s correspondientes a las combinaciones de parámetros y almacénalos en una lista llamada `Lista.Liss`. El nombre de cada elemento de la lista tendrá el formato `Liss_fx_fy` (usa `paste`). Por ejemplo, el primer elemento de la lista se llamará `Liss_1_1`.
+
+La forma más sencilla de aplicar la función con todos los parámetros es con un bucle `for`:
+
+```{r, warning=FALSE}
+# Inicializamos una lista vacía donde iremos guardando los resultados
+Liss_fx_fy <- list()
+for (n in seq_len(nrow(Params))){
+  fx <- Params[n,]$fx
+  fy <- Params[n,]$fy
+  delta <- Params[n,]$delta
+  N <- Params[n,]$N
+  name <- paste("Liss", fx, fy, sep="_")
+  a <- Lissajous(fx=fx, fy=fy, delta=delta, N=N)
+  # Liss_fx_fy[name] <- a
+  temp <- list(a)
+  names(temp) <- name
+  Liss_fx_fy <- append(Liss_fx_fy, temp)
+  # break
+}
+str(Liss_fx_fy)
+```
+
+
+* Recorre la lista creada y realiza la represetación de cada una de las combinaciones de parámetros indicadas en la Tabla.
+
+```{r}
+for (name in names(Liss_fx_fy)){
+  x <- Liss_fx_fy[[name]]$x
+  y <- Liss_fx_fy[[name]]$y
+  plot(unlist(x),unlist(y),type = 'l',axes=FALSE,xlab = 'x',ylab='y')
+}
+```
+
+## Extra point
+```{r}
+fx <- c(1,2)
+fy <- c(2,3,5)
+delta <- c(0, pi/4, pi/2, 3*pi/4, pi)
+
+combs <- expand.grid(fx, fy, delta)
+
+for (n in seq_len(nrow(combs))){
+  fx <- combs[n,1]
+  fy <- combs[n,2]
+  delta <- combs[n,3]
+
+  a <- Lissajous(fx=fx, fy=fy, delta=delta, N=N)
+
+  plot(a$x,a$y,type = 'l',axes=FALSE,xlab = 'x',ylab='y')
+}
+
+```
+
+
+
+# Importación y manejo
+
+* Importa el fichero `NosAnalizamos` en un `data.frame`
+```{r}
+library(readr)
+NosAnalizamos2 <- read_delim("NosAnalizamos2.tsv", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE, skip = 29)
+```
+
+* Elimina las columnas anteriores a `Identificador` si las hubiese.
+
+```{r}
+which(colnames(NosAnalizamos2) == "Identificacion")
+NosAnalizamos2 <- NosAnalizamos2[colnames(NosAnalizamos2)[which(colnames(NosAnalizamos2) == "Identificacion"):length(colnames(NosAnalizamos2))]]
+NosAnalizamos2
+```
+
+* Elimina aquellos registros con `Identificacion` vacía.
+
+```{r}
+NosAnalizamos2 <- NosAnalizamos2[!is.na(NosAnalizamos2$Identificacion),]
+NosAnalizamos2
+```
+
+* Determina el número de registros
+
+```{r}
+nrow(NosAnalizamos2)
+```
+
+* 5 primeros y 5 últimos.
+
+```{r}
+head(NosAnalizamos2, 5)
+```
+
+```{r}
+tail(NosAnalizamos2, 5)
+```
+
+* Almacena el nombre de las variables
+
+```{r}
+VarNames <- colnames(NosAnalizamos2)
+VarNames
+```
+
+* Unicos en la variable `Fold`
+
+```{r}
+unique(NosAnalizamos2$Fold)
+```
+
+* Usa un expresión regular adecuada y el comando gsub para que los valores de esta variables sean Izquierdo y Derecho. Almacena los resultados en una nueva columna del data frame llamada Fold.New.
+
+```{r}
+NosAnalizamos2$Fold.New <- NosAnalizamos2$Fold
+NosAnalizamos2$Fold.New <- gsub('^[Ii].*', "Izquierdo", NosAnalizamos2$Fold.New)
+NosAnalizamos2$Fold.New <- gsub('^[Dd].*', "Derecho", NosAnalizamos2$Fold.New)
+unique(NosAnalizamos2$Fold)
+unique(NosAnalizamos2$Fold.New)
+```
+
+* Transforma `Fold.New` en un factor.
+
+```{r}
+NosAnalizamos2$Fold.New <- factor(NosAnalizamos2$Fold.New)
+NosAnalizamos2$Fold.New
+```
+
+* Ordena el `data.frame` según la variable Height en orden decreciente.
+
+```{r}
+idx_ord <- order(NosAnalizamos2$Height, decreasing = TRUE)
+NosAnalizamos2 <- NosAnalizamos2[idx_ord,]
+NosAnalizamos2
+```
+
+* Determina la edad media de los participantes (variable Age), sin considerar los registros vacíos.
+
+```{r}
+mean(na.omit(NosAnalizamos2$Age))
+```
+
+* ¿Cuál es la edad media de los participantes menores de 30 años ?
+
+```{r}
+mean(na.omit(NosAnalizamos2[NosAnalizamos2$Age<30,]$Age))
+```
+
+* Considera la columna Comentarios.
+
+  * Cópiala en el vector `Vec.Com`
+```{r}
+Vec.Com <- NosAnalizamos2$Comentarios
+```
+  
+  
+  * Elimina los valores vacíos del Vec.Com.
+```{r}
+Vec.Com <- na.omit(Vec.Com)
+```
+  
+  * Divide `Vec.Com` en palabras y almacénalo en `Vec.Com.Dividido`. Considera el espacio (uno o más) como elemento para la división.
+```{r}
+Vec.Com.Dividido <- strsplit(Vec.Com, split="\\s+")
+```
+  
+  * Forma un vector con todas las palabras.
+```{r}
+Vec.Com.Dividido <- unlist(Vec.Com.Dividido)
+```
+  
+  * Elimina del vector todas las palabras de la siguiente lista `c('que','de','la','es','y')` y guárdalo en el vector `Vec.Com.Dividido.f`
+```{r}
+Vec.Com.Dividido.f <- Vec.Com.Dividido[!(Vec.Com.Dividido %in% c('que','de','la','es','y'))]
+```
+  
+  * Usa la instrucción `table` para contar el número de repeticiones de cada palabra en `Vec.Com.Dividido.f`, transformando previamente todas las palabras del vector en mayúsculas.
+
+  
+```{r}
+Tabla.Freq <- table(toupper(Vec.Com.Dividido.f))
+Tabla.Freq
+```
+  * ¿ Cuál es la palabra más repetida ? ¿Cuántas veces se repite ? (Ayuda: Usa `as.data.frame(table(...))` y analiza las columnas del data frame obtenido. )
+```{r}
+Df.Freq <- as.data.frame(Tabla.Freq)
+Df.Freq[order(Df.Freq$Freq, decreasing = TRUE),]
+```
+  
+La palabra más repetida es "ASIGNATURA" y aparece 30 veces.
