@@ -1,0 +1,299 @@
+---
+title: "Entregable Series Temporales - Análisis de jugadores durante la salida del videojuego New World"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+header-includes:
+  - \usepackage[explicit]{titlesec}
+  - \titleformat{\section}{\normalfont\Large\bfseries}{}{0em}{\thesection. {#1}\ }
+subparagraph: yes
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Carga de los datos
+
+```{r}
+library(readr)
+Frankfurt_TS <- read_csv("Frankfurt_TS.csv", 
+                         col_types = cols(...1 = col_datetime(format = "%Y-%m-%d %H:%M:%S")))
+
+names(Frankfurt_TS) <- c("Fecha", "Jugadores")
+```
+
+# Descripción de los datos
+
+Para este ejercicio vamos a trabajar con los datos de jugadores conectados al videojuego *New World* durante los días siguientes a su lanzamiento. Como podemos ver, es una serie interesante porque es claramente no estacionaria, ya que se aprecian cambios en la media y la varianza, tendencia y efectos estacionales. 
+Se compone de datos tomados cada 10 mins durante un periodo de 7 días, por lo que nuestra frecuencia es 144. Esto quiere decir que cada 144 puntos realizamos un ciclo de 1 día.
+Para representar la serie utilizamos la librería `xts` porque nos permite aprovechar las etiquetas de fecha que ya tenemos. Para el análisis posterior utilizaremos la librería `forecast`.
+
+En su salida, este juego tuvo un gran problema de capacidad de servidores. Esto se puede apreciar perfectamente en la figura, ya que conforme pasan los días se van pudiendo conectar cada vez más jugadores. También observamos un ciclo diario que se corresponde con el día y la noche.
+
+> En algunos puntos se observan bajadas repentinas de jugadores porque se cayeron los servidores del juego. Estos puntos se podrían limpiar sustituyendolos (i.e. por interpolación), pero nos vamos a centrar únicamente en el análisis de la serie temporal tal y como se extrae de la base de datos.
+
+```{r}
+library(forecast)
+library(xts)
+time_data <- ts(Frankfurt_TS$Jugadores, start=1, frequency=24*60/10)
+time_data_xts <- xts(Frankfurt_TS$Jugadores, Frankfurt_TS$Fecha, frequency=144)
+
+plot(time_data_xts, main="Jugadores New World (Frankfurt)")
+```
+
+# Descomposición de la serie temporal
+
+Podemos descomponer la serie temporal para comprobar la presencia de tendencia y estacionalidad.
+
+```{r}
+time_data_decomposed <- decompose(time_data)
+plot(time_data_decomposed)
+```
+
+# Análisis de la serie mediante suavizado exponencial
+
+Empezaremos aplicando el método de Holt-Winters aditivo y luego lo aplicaremos sobre la serie transformada con el logaritmo (que es equivalente a Holt-Winters multiplicativo) para comparar cuál de los dos métodos nos proporciona mejores resultados.
+
+Para la comparación de modelos utilizaremos el $RMSE$ y el $MAPE$, así que vale la pena definirnos sus correspondientes funciones para agilizar el uso. También podemos definir una función que devuelve directamente los dos valores por comodidad. Con el objetivo de realizar una comparativa justa separamos el conjunto de datos en entrenamiento y test, dejando el último día para el conjunto de test y utilizando los primeros 6 para el entrenamiento de los modelos. De esta forma también podemos ver qué modelo sufre más de sobreajuste.
+
+```{r}
+train <- time_data[1:(length(time_data)-144)]
+train <- ts(train, start=1, frequency=24*60/10)
+test <- time_data[(length(time_data)-143):length(time_data)]
+test <- ts(test, start=1, frequency=24*60/10)
+print(paste("Longitud de train:", length(train)))
+print(paste("Longitud de test:", length(test)))
+```
+
+
+```{r}
+rmse <- function(true, pred){
+  return(sqrt(mean((true-pred)^2)))
+}
+mape <- function(true, pred){
+  return(100*mean(abs(true-pred)/true))
+}
+
+report_score <- function(true, pred, verbose=FALSE){
+  rmse <- rmse(true=true, pred=pred)
+  mape <- mape(true=true, pred=pred)
+  if (verbose){
+    print(paste("RMSE:", rmse))
+    print(paste("MAPE:", mape))  
+  }
+  return(c(RMSE=rmse, MAPE=mape))
+}
+```
+
+## Holt-Winters Aditivo
+
+**Nota:** Como nuestra serie temporal tiene la frecuencia muy elevada, no podemos aplicar la función `hw()`, así que tendremos que utilizar `HoltWinters()`. La forma de lo que devuelve es ligeramente distinta pero contiene la misma información.
+
+```{r, error=TRUE}
+model_hw <- hw(train)
+```
+```{r}
+model_hw <- HoltWinters(train)
+str(model_hw)
+```
+
+Podemos ver en negro la serie original y e rojo la predicción que hace el modelo. Vemos que predice muchos picos sueltos que podemos atribuir a los artefactos de la propia serie temporal. El resultado debería ser mucho mejor si arreglásemos la serie, pero vemos que tampoco es malo.
+
+```{r}
+plot(model_hw)
+```
+
+Aún así, si vemos cómo predice el día siguiente podemos ver que lo hace verdaderamete mal.
+
+```{r}
+pred_test <- predict(model_hw, 144)
+plot(test, ylim=c(0,400000))
+lines(x=seq(from=1, to=2, length.out=144), pred_test, col="red")
+```
+
+Podemos calcular los errores para tener una métrica con la que comparar:
+
+```{r}
+fitval <- model_hw$fitted[,1]
+report_score(true=train, pred=fitval)
+```
+
+```{r}
+report_score(true=as.numeric(test), pred=as.numeric(pred_test))
+```
+
+## Análisis de la serie transformada con Holt-Winters aditivo (equivalente a Holt-Winters multiplicativo)
+
+```{r}
+train_log <- log(train)
+test_log <- log(test)
+model_hw_log <- HoltWinters(train_log)
+plot(model_hw_log)
+```
+
+Podemos ver que sigue padeciendo el mismo problema que antes. No es capaz de interpretar la tendencia ascendente de la serie.
+
+```{r}
+pred_test <- predict(model_hw_log, 144)
+plot(test_log)
+lines(x=seq(from=1, to=2, length.out=144), pred_test, col="red")
+```
+
+Si calculamos las métricas:
+
+```{r}
+fitval <- model_hw_log$fitted[,1]
+report_score(true=train_log, pred=fitval)
+```
+
+```{r}
+report_score(true=as.numeric(test_log), pred=as.numeric(pred_test))
+```
+
+Estos números son muy engañosos porque sí, son mucho más pequeños que los que obteníamos antes. Pero porque los hemos calculado sobre la serie con el logaritmo. Para poder compararlos adecuadamente tenemos que deshacer la transformación logarítimica aplicando una exponencial.
+
+```{r}
+fitval <- model_hw_log$fitted[,1]
+report_score(true=train, pred=exp(fitval))
+```
+
+```{r}
+report_score(true=as.numeric(test), pred=as.numeric(exp(pred_test)))
+```
+
+Deshecha la transformación, sí que podemos ver que las métricas son considerablemente mejores.
+
+# Análisis de la serie con la metodología Box-Jenkins
+
+Como nuestra serie temporal presenta tendencia y estacionalidad, lo primero que tenemos que hacer es determinar la transformación estacionaria de la serie.
+
+## Determinar la transformación estacionaria de la serie
+
+Hemos realizado dos diferenciaciones para quitar la estacionalidad y la tendencia. El resultado que obtenemos al final sufre un poco por culpa de los artefactos en los datos, pero es algo con lo que tenemos que lidiar al estar tratando con datos reales. Podemos asumir que la serie obtenida ya es estacionaria y podemos pasar a examinar el correlograma y el correlograma parcial.
+
+```{r}
+d12 <- diff(train, 144)
+plot(d12)
+```
+
+```{r}
+dd12 <- diff(d12, 1)
+plot(dd12)
+```
+
+## Parte regular
+
+### Correlograma (ACF)
+
+Teniendo en cuenta que la primera barra no hay que contarla, podemos ver claramente que solo tenemos una barra significativa, por lo que tendríamos `q=1`.
+
+```{r}
+acf(dd12, 50)
+```
+
+### Correlograma Parcial (PACF)
+
+En el PACF podemos observar dos posibilidades:
+1. Disminuye lentamente -> `p=0`
+2. Tenemos dos barras significativas -> `p=2`
+En los casos siguientes arrastraremos las dos posibilidades y comprobaremos qué resultado es mejor.
+
+```{r}
+pacf(dd12, 50)
+```
+
+Podemos comparar lo que obtenemos con lo que calcula el auto ARIMA. Nosotros planteábamos las posibilidades (0,1,1) y (2,1,1) y auto ARIMa sugiere utilizar (2,1,3), así que parece que no nos desviamos demasiado.
+
+```{r}
+auto.arima(train)
+```
+
+## Parte Estacional
+
+Si queremos estudiar la parte estacional tenemos que tener en cuenta que la frecuencia de nuestra serie temporal es de 144, por lo que tenemos que introducir un `lag` muchísimo mayor en los plots de `ACF` y `PACF`.
+
+### ACF
+
+Se aprecia claramente un valor significativo en `lag=1` (que corresponde a 1 día o 144 muestras), por lo que `Q=1`.
+
+```{r}
+acf(dd12, 500)
+```
+
+### PACF
+
+En este caso se aprecia como va disminuyendo en los retardos enteros, por lo que `P=0`.
+```{r}
+pacf(dd12, 500)
+```
+
+# Entrenamiento de los posibles modelos y evaluación
+
+Tras realizar este análisis podemos considerar finalmente dos modelos ARIMA posibles:
+
+* SARIMA (0,1,1)x(0,1,1)
+* SARIMA (2,1,1)x(0,1,1)
+
+Para terminar solamente nos falta entrenar los modelos y comprobar cuál se ajusta mejor a nuestros datos:
+```{r}
+library(astsa)
+```
+
+A partir de los residuos de los dos modelos se puede ver que ninguno realiza en realidad un buen ajuste de los datos. Ninguno de los p-valores es realmente significativo y el plot Q-Q se aleja bastante del resultado ideal. No podemos considerar que los residuos tienen forma de ruido de blanco (que sería lo deseable). Aún así, podemos obtener las métricas y comparar con el resto de modelos.
+
+```{r}
+sarima_1 <- sarima(train, p=0, d=1, q=1, P=0, D=1, Q=1, S=144)
+sarima_2 <- sarima(train, p=2, d=1, q=1, P=0, D=1, Q=1, S=144)
+```
+
+Los cuales tienen los siguientes parámetros:
+
+```{r}
+sarima_1$ttable
+sarima_2$ttable
+```
+
+Finalmente nos quedamos con el modelo con menor AIC, que es el que corresponde al modelo SARIMA (2,1,1)x(0,1,1).
+
+```{r}
+sarima_1$AIC
+sarima_2$AIC
+```
+
+Podemos representar las predicciones sobre el conjunto real de test. Aunque siguen sin ser muy buenas, ya son mejores que las que obteníamos con Holt-Winters:
+
+```{r}
+pred_1 <- predict(sarima_1$fit, n.ahead = 144)
+pred_2 <- predict(sarima_2$fit, n.ahead = 144)
+plot(test, main="SARIMA (0,1,1)x(0,1,1)")
+lines(x=seq(from=1, to=2, length.out=144), pred_1$pred, col="red")
+```
+
+```{r}
+plot(test, main="SARIMA (2,1,1)x(0,1,1)")
+lines(x=seq(from=1, to=2, length.out=144), pred_2$pred, col="red")
+```
+
+Y finalmente podemos comparar el RMSE y el MAPE sobre el conjunto de test:
+
+```{r}
+report_score(true=as.numeric(test), pred=as.numeric(pred_1$pred))
+report_score(true=as.numeric(test), pred=as.numeric(pred_2$pred))
+```
+
+Viendo que los AIC son prácticamente iguales, podemos optar por quedarnos con el modelo que obtiene mejor RMSE y MAPE, el modelo **SARIMA (0,1,1)x(0,1,1)**.
+
+# Conclusión
+
+Como ya veníamos considerando, parece que los artefactos en los datos han influido muy negativamente en el resultado que hemos obtenido. Aún así, hemos realizado todas las etapas del proceso de modelado y hemos visto que finalmente el modelo SARIMA (0,1,1)x(0,1,1) obtenía los mejores resultados de entre todos los modelos probados. Resultaría muy interesante volver a repetir el análisis una vez hubiésemos cursado la asignatura de *Análisis exploratorio de datos* para ver cómo cambian.
