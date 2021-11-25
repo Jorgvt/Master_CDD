@@ -1,0 +1,446 @@
+---
+title: "Entregable 1"
+subtitle: "Modelos Lineales"
+author: "Jorge Vila Tomás"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+header-includes:
+  - \usepackage[explicit]{titlesec}
+  - \titleformat{\section}{\normalfont\Large\bfseries}{}{0em}{\thesection. {#1}\ }
+subparagraph: yes
+---
+
+```{css, echo=FALSE}
+.header-section-number::after {
+  content: ".";
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE}
+# Especificamos las librerías necesarias en esta lista
+
+packages = c("MASS", "DescTools", "leaps", "corrplot", "dplyr", "ggplot2", "GGally", "olsrr", "forcats", "car", "boot")
+
+#use this function to check if each package is on the local machine
+#if a package is installed, it will be loaded
+#if any are not, the missing package(s) will be installed and loaded
+package.check <- lapply(packages, FUN = function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE,repos='http://cran.rediris.es')
+    library(x, character.only = TRUE)
+  }
+})
+
+#verify they are loaded
+search()
+
+```
+
+# Análisis exploratorio
+
+Antes de comenzar el ejercicio realizaremos una mínima exploración de los datos para entender un poco el conjunto con el que estamos trabajando. Lo primero que hacemos es incluir en el dataset la categorización por terciles de la variable `dis` y la categorización por cuartiles de la variable `rad`.
+
+```{r}
+boston<-Boston
+boston$dis_3c<-cut(Boston$dis,breaks=quantile(Boston$dis,(0:3)/3),NULL, T, F)
+breaks_rad<-c(unique(quantile(Boston$rad,(0:4)/4)),max(Boston$rad)+1)
+boston$rad_4c<-cut(Boston$rad,breaks=breaks_rad,NULL, T, F)
+```
+
+También es buena idea utilizar la función `glimpse()` de `dplyr` para ver qué tipos de variables tenemos. Podemos ver que son todas variables numéricas a excepción de las dos que hemos incluído nosotro antes. Aún así, la variable `chas` parece que debería ser un factor porque solo tiene dos valores posibles, 0 y 1, aunque no lo vamos a modificar porque no se nos pide directamente.
+
+```{r}
+glimpse(boston)
+```
+
+Podemos representar también la matriz de correlación de las variables numéricas para identificar posibles variables correlacionadas que podrían darnos problemas en el futuro. Se puede ver que `rad` y `tax` están bastante correlacionadas. Esto lo veremos también más adelante cuando estudiemos el *VIF*.
+
+```{r}
+boston %>% 
+  select_if(is.numeric) %>%
+  cor() %>% 
+  corrplot(order = 'hclust')
+```
+
+# Considerando un tope de 15 variables, encuentra número óptimo de variables a incluir en un modelo predictivo de `medv`, según el criterio BIC.
+
+Para encontrar las variables óptimas con las que consturir un modelo predictivo para predicir `medv` según el criterio BIC tenemos dos posibilidades:
+
+- Podemos utilizar `ols_step_forward_p()` de la librería `olsrr`.
+- O utilizar la función `regsubsets` de la librería ´leaps`.
+
+La primera aproximación consiste en ir incluyendo variables en función de su p-valor mientras se calculan diferentes métricas para cada modelo. Una vez se consigue el modelo óptimo según cierto criterio, se para la ejecución. También se puede hacer el mismo proceso pero de forma inversa (con la función `ols_step_backward_p()` de la misma librearía) y alcanzamos el mismo resultado.
+
+```{r}
+model <- lm(medv ~ ., data = boston)
+res.f <- ols_step_forward_p(model)
+# plot(res.f)
+par(mfrow=c(1,2))
+plot(res.f$rsquare, main = "R2", xlab = "# Variables")
+plot(res.f$sbc, main = "BIC", xlab = "# Variables")
+
+```
+
+Si representamos la evolución de las diferentes métricas podemos ver que el BIC (figura con el título *SBC*) tiene un mínimo con 11 variables, las cuales son: `r res.f$predictors[1:11]`.
+
+Si por el contrario queremos utilizar la segunda aproximación, la utilización de la función es algo diferente. En `regsubsets` podemos especificar el parámetro `nvmax` que permite fijar los predictores máximos que queremos utilizar. Esto parece más apropiado para nuestro caso de uso porque se nos pide explícitamente que no utilicemos más de 15 predictores.
+
+```{r}
+cuac <- regsubsets(medv ~ ., data = boston, nvmax = 15, method = 'forward')
+sum.cuac <- summary(cuac)
+par(mfrow=c(1,2))
+plot(sum.cuac$adjr2, main = "R2", xlab = "# Variables")
+plot(sum.cuac$bic, main = "BIC", xlab = "# Variables")
+```
+
+ Al igual que antes podemos ver representada la variación del *BIC* con el número de variables y volvemos a obtener el mínimo en 11 predictores, los cuales son: `r names(sum.cuac$which[11,])[sum.cuac$which[11,]]`.
+ 
+ > Nótese que también se ha considerado el intercept.
+ 
+ Si no queremos considerar el intercept, podemos repetir el proceso utilizando el argumento `intercept = FALSE`:
+ 
+```{r}
+cuac.ni <- regsubsets(medv ~ ., data = boston, nvmax = 15, method = 'forward', intercept = FALSE)
+sum.cuac.ni <- summary(cuac.ni)
+par(mfrow=c(1,2))
+plot(sum.cuac.ni$adjr2, main = "R2", xlab = "# Variables")
+plot(sum.cuac.ni$bic, main = "BIC", xlab = "# Variables")
+```
+ 
+ Resulta curioso ver que de esta manera la cantidad óptima de variables pasa a ser 8: `r names(sum.cuac$which[8,])[sum.cuac$which[8,]]`.
+
+# ¿Qué variables incluye el mejor modelo con 12 variables? ¿Consideras que tiene sentido?
+ 
+ A partir de cualquiera de los resultados que obtuvimos en el apartado anterior podemos ver las variables que se consideran para el mejor modelo con 12 variables:
+ 
+```{r}
+names(sum.cuac$which[12,])[sum.cuac$which[12,]]
+```
+ 
+Lo que obtenemos es algo que hay que analizar con cuidado: la doceava variable corresponde a uno de los bines creados a partir de la columna categórica `dis`, pero no se incluyen los demás. Este tipo de resultados son peliagudos porque tenemos dos aproximaciones posibles:
+
+- Primero podemos pensar que para realizar la predicción solamente es importante saber si el valor de `dis` está en el intervalo $[2.38, 4.33]$, es decir, no es tan importante saber si la vivienda está muy cerca o muy lejos de un centro de negocio como saber que está a una distancia media. Dependiendo del problema con el que estemos trabajando podemos intentar justificar este tipo de resultados (i.e. quizás en diagnóstico médico tenga sentido que nos valga con saber si fuma o no fuma en lugar de cuánto fuma), pero no suele estar clara la interpretación.
+
+- La aproximación más segura es que, si tenemos que incluir alguna clase de un conjunto, incluyamos todas las posibles porque no tiene del todo sentido dejar fuera cierta información que tenemos sobre una variable.
+
+# Selecciona el mejor modelo con el método `stepwise`, utilizando la versión categórica de las variables `rad` y `dis`.
+
+En los apartados anteriores incluimos en el modelo tanto la variable original como la versión categórica, pero ahora eliminamos la variable original para quedarnos solo con la que hemos categorizado:
+
+```{r}
+boston.cat <- boston %>% 
+                select(-c(rad, dis))
+head(boston.cat)
+```
+
+Una vez obtenido el nuevo `data.frame` podemos repetir el procedimiento anterior. Como no se nos especifica que sigamos utilizando el criterio BIC para elegir el mejor modelo, utilizaremos el AIC que es el que implementan de base la gran mayoría de funciones de *R*:
+
+```{r}
+model <- lm(medv ~ ., data = boston.cat)
+cat.step <- step(model)
+summary(cat.step)
+```
+
+Al utilizar únicamente las versiones categóricas de las variables `rad` y `dis` podemos ver que el modelo incluye las variables `r names(coef(cat.step))`. Ahora se han incluido muchas más categorías que en los apartados anteriores (algo que tiene sentido, ya que antes también se incluía la variable original que, de alguna forma, contiene información de las categorías, así que no era tan necesario introducirlas todas). Aún así podemos ver que tenemos el mismo problema que antes, no se han incluido todas. Además, hay dos intervalos de `rad` con p-valores muy altos. Además, también se ha eliminado la variable `zn` que sí que se incluía antes.
+
+# Depura el modelo anterior sólo si te parece oportuno y contesta:
+
+Como ya hemos comentado, podría ser apropiado ajustar las variables categóricas, en especial las categorías de la variable `rad_4c`. Un enfoque que podemos utilizar es juntar las dos categorías no significativas y la que no está incluida en una sola categoría. De esta forma tendríamos solo dos categorías para esta variable: $[1,24)$ y $[24,25]$. Para ello podemos utilizar la función `fct_collapse()` de la librería `forcats`.
+
+```{r}
+boston.cat.rad2 <- boston.cat %>% 
+                     mutate(rad_4c_2 = fct_collapse(rad_4c, '[1,24)' = c('[1,4)', '[4,5)', '[5,24)'))) %>% 
+                     select(-rad_4c)
+head(boston.cat.rad2)
+```
+
+Si repetimos el cálculo anterior con los nuevos datos podemos ver que ahora todas las variables que introducimos en el modelo son significativas:
+
+```{r}
+model <- lm(medv ~ ., data = boston.cat.rad2)
+cat.step <- step(model, trace = 0)
+summary(cat.step)
+```
+
+Esto nos lleva a pensar que nuestro modelo no necesita tanto detalle respecto a la variable `rad`, le basta con saber si el índice de accesibilidad a autopistas radiales a muy alto o no (si no es muy alto tendrá que ser muy bajo). Además, vemos que el valor del $R^{2}_{\mathrm{adj}}$ ha mejorado ligeramente, entre otras cosas, porque utilizamos menos variables. 
+
+## ¿El modelo es equivalente al modelo nulo?
+
+El modelo nulo correspondería a un modelo que sigue la hipótesis nula (las pendientes no 0), pero los valores de las pendientes que obtenemos tienen todos un p-valor mucho menor de 0.05, por lo que podemos rechazar la hipótesis nula y afirmar que las pendientes son diferentes de cero, por lo que nuestro modelo no es equivalente al modelo nulo.
+
+## ¿Qué % de la varianza de `medv` explica el modelo?
+
+El porcentaje de la varianza explicada por el modelo se puede obtener a partir del valor de $R^2$: `r summary(cat.step)$r.squared`.
+
+## ¿Cuál es la variable más explicativa?
+
+Para determinar la variable más explicativa del modelo podríamos fijarnos en los valores de las pendientes y determinar que la variable más explicativa es la que tiene una pendiente más grande, pero esto nos puede llevar a equivocación cuando trabajamos con variables en diferentes escalas. Otra cosa que podríamos hacer es fijarnos en los p-valores y elegir la variable que tiene el p-valor más bajo, pero nos encontramos con que R solo nos llega a dar `< 2e-16`. Parece mejor idea fijarnos en el valor del estadístico t (que es a partir del que se calcula el p-valor). Fijándonos en esto podríamos considerar que la variable más explicativa o influyente será la que tenga el t-valor más alto (en valor absoluto), es decir, `lstat`, seguida muy de cerca por `rm`.
+
+## ¿Cuál es su efecto sobre `medv`.
+
+Cuantificar su efecto sobre la predicción no es tampoco trivial, pero lo que sí que podemos asegurar es que `medv` depende inversamente de `lstat` y proporcionalmente de `rm`. ¿Tiene sentido? Si leemos la información de las variables podemos pensar que sí. `lstat` representa el porcentaje de población de clase baja y normalmente si hay más población de clase baja, el precio bajará. En cambio, `rm` representa el número de habitaciones y lo normal es que el precio de una vivienda aumente con el número de habitaciones.
+
+# Realiza el diagnóstico de tu modelo, sin emprender ninguna acción, e indica los problemas que presenta.
+
+Uno de los primeros pasos que podemos realizar para diagnosticar nuestro modelo es representar los residuos frente a los valores ajustados. Esta representación se puede obtener de manera sencilla a partir del modelo que hemos ajustado:
+
+```{r}
+par(mfrow=c(2,2))
+plot(cat.step)
+```
+
+Podemos ver que la gráfica de residuos presenta una tendencia cuadrática. Esto se puede asociar a que el modelo no es capaz de predecir bien los valores extremos, y es un ejemplo claro de heterocedasticidad. Una posible solución podría ser transformar la variable objetivo mediante una transformación de Box-Cox, ya que no tenemos ningún valor negativo.
+
+Por otra parte, en la figura aparecen marcados unos puntos que podríamos considerar *outliers*: observaciones aberrantes para las que el residuo es muy grande. La solución más sencilla podría ser quitarlos directamente, pero podemos comprobar si tienen algo en particular:
+
+```{r}
+idxs <- c(369, 372, 373)
+
+boston.cat.rad2[idxs,]
+```
+
+Llama la atención que las tres muestras se parecen bastante y tienen el mismo valor de `medv`, 50. Podríamos achacar entonces la desviación a que los tres tienen valores muy grandes de `medv` y quizás sea suficiente con transformar la variable respuesta para arreglar el problema. En la siguiente sección lo estudiaremos y los quitaremos si es necesario.
+
+Una comprobación adicional que podemos hacer es representar los residuos parciales por cada variable. Esto puede ser algo laborioso si tenemos muchas variables, pero como este problema es relativamente pequeño podemos representarlas todas sin mucho problema. Haciendo esto podemos comprobar si alguna de nuestras variables se podría beneficiar de alguna transformación. Lo podemos hacer fácilmente utilizando la función `crPlots()` de la librería `car`:
+
+```{r}
+crPlots(cat.step, ask = FALSE, id = TRUE)
+```
+
+A partir de estas figuras podemos identificar dos variables que presentan un comportamiento muy distinto del resto: `rm` y `lstat` (que además hemos visto antes que son las dos variables más importantes del modelo). En primer lugar, `rm` presenta un comportamiento que podría parecer cuadrático o, por lo menos, de orden mayor. Por otro lado, `lstat` parece tener una dependencia exponencial decreciente con su residuo. Estas dos variables son candidatas a ser transformadas. La variable `crim` también presenta un comportamiento un poco extraño pero parece deberse principalmente a la presencia de outliers muy alejados del resto de las variables. Valdría la pena explorar lo que obtendríamos si los eliminásemos.
+
+> También llama la atención como la variable `tax` tiene un salto de ~450 hasta 666, donde se concentran muchos valores. No está claro porqué se produce este salto. Simplemente podrían ser viviendas que están en zonas parecidas o de precios similares, pero podría suponer ciertos problemas para el modelo. De todas formas tampoco podríamos quitarlos porque son 132 puntos. Quizás se podrían desplazar aplicando algún offset, pero sería ir a ciegas.
+
+Además de todo esto, también puede resultarnos útil utilizar el *VIF*, factor de inflación de la varianza, para detectar multicolinealidad en las variables. Es muy sencillo de calcular con la función `vif` del paquete `car`:
+
+```{r}
+vif(cat.step)
+```
+
+En general debemos preocuparnos por las variables de las que obtengamos valores mayores a 10, aunque valores superiores a 5 también nos podrían llamar la atención. En nuestro caso solamente hay dos variables que podrían resultar problemáticas: `tax` y `rad_4c_2` (las cuales ya habíamos identificado al representar la matriz de confusión al inicio). La primera ya hemos comentado antes que parece tener algún problema con algunos valores, pero `rad` no había dado ninguna muestra de comportamiento peligroso. A priori no optaríamos por eliminarlas, pero podría valer la pena comprobar cómo cambia el resultado si no las consideramos, aunque sea por completitud.
+
+# Emprende ahora las acciones que te parezcan oportunas e indica los problemas que has conseguido solucionar y disminuir.
+
+## Transformación Box-Cox de la variable respuesta `medv`
+
+Siguiendo lo comentado en la Sección anterior podemos empezar por aplicar una transformación Box-Cox a la variable respuesta `medv`:
+
+```{r}
+res.boxcox <- boxcox(cat.step, lambda = seq(0, 1, length = 10))
+lambda <- res.boxcox$x[which.max(res.boxcox$y)]
+```
+
+Si tomamos el valor máximo de la gráfica tenemos $\lambda = 0.0909091$. Esto nos permite transformar la variable respuesta según la expresión:
+$$
+y' = \frac{y^{\lambda}-1}{\lambda}
+$$
+
+Para comprobar la influencia de esta transformación tenemos dos posibilidades: podríamos volver a entrenar el modelo con las mismas variables que antes pero transformadas (esto nos permitiría una comparación más directa), o podríamos volver a repetir el proceso de selección de características, ya que la transformar la variable cabe la posibilidad de que obtuviésemos variables diferentes. Realizaremos primero la comparación directa y luego repetiremos, por si acaso, la selección de características.
+
+```{r}
+model.bc <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + tax + ptratio + 
+                         black + lstat + dis_3c + rad_4c_2, data = boston.cat.rad2)
+summary(model.bc)
+par(mfrow=c(2,2))
+plot(model.bc)
+```
+
+Lo primero que podemos ver es que el modelo ajustado con los datos transformados ha mejorado su $R^{2}$ en un 7% ($0.7271 $\rightarrow$ 0.7796) y, aunque no se ha eliminado la curva de la figura, se ha suavizado. También resulta curioso ver cómo la importancia y la significancia de las variables ha cambiado: ahora `chas` y `dis_3c[2.38,4.33)` son menos importantes. Quizá valdría la pena probar a juntar esta categoría con la otra que si es más significativa. Como anticipamos antes, de los outliers que aparecen marcados en la figura de residuos vs *fitted values* se ha añadido uno respecto al caso sin transformar. Podemos quitarlos a continuación. Además, como comprobación extra, podemos ver que si repetimos el proceso `stepwise` obtenemos las mismas variables.
+
+```{r}
+model.bc <- lm((medv^lambda-1)/lambda ~ ., data = boston.cat.rad2)
+cat.step.bc <- step(model.bc, trace = 0)
+summary(cat.step.bc)
+```
+
+## Outliers
+
+Como en la figura aparecen directamente los índices de los puntos, podemos quitarlos fácilmente y repetir el ajuste, aunque tampoco debería cambiar demasiado puesto que solamente son 3 puntos:
+
+```{r}
+idxs.out.bc <- c(369, 372, 373, 413)
+
+boston.cat.rad2.yout <- boston.cat.rad2[-idxs.out.bc,]
+model.bc.out <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + tax + ptratio + 
+                         black + lstat + dis_3c + rad_4c_2, data = boston.cat.rad2.yout)
+summary(model.bc.out)
+par(mfrow=c(2,2))
+plot(model.bc.out)
+```
+
+Este cambio suaviza un poco más la gráfica de los residuos y hace aumentar el $R^2$, aunque este aumento es un poco ficticio, ya que es de esperar que mejore la métrica si eliminamos los datos que predice peor. Además, es llamativo ver como ahora la categoría `dis_3c[2.38,4.33]` deja de ser significativa para el modelo. Esto quiere decir que, igual que hacíamos en secciones previas, podemos juntarla con la otra categoría que sí es significativa:
+
+```{r}
+boston.cat.rad.dis <- boston.cat.rad2.yout %>% 
+                     mutate(dis_3c_2 = fct_collapse(dis_3c, '[2.38,12.1]' = c('[2.38,4.33)', '[4.33,12.1]'))) %>% 
+                     select(-dis_3c)
+head(boston.cat.rad.dis)
+```
+
+```{r}
+model.bc.out.dis <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + tax + ptratio + 
+                         black + lstat + dis_3c_2 + rad_4c_2, data = boston.cat.rad.dis)
+summary(model.bc.out.dis)
+par(mfrow=c(2,2))
+plot(model.bc.out.dis)
+```
+
+Vemos que el resultado del modelo empeora, por lo que parece que no ha sido buena idea.
+
+A continuación podemos probar las transformaciones que comentábamos en la Sección anterior para las variables `rm` y `lstat`. Las probaremos de una en una para comprobar su influencia.
+
+## Transformacion de `rm`
+
+En vista del comportamiento cuadrático que mostraban los residuos parciales podemos cambiar la variable `rm` por su valor elevado al cuadrado, `rm2`.
+
+```{r}
+boston.rm2 <- boston.cat.rad2.yout %>% 
+                mutate(rm2 = rm^2)
+
+model.rm2 <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm2 + tax + ptratio + 
+                         black + lstat + dis_3c + rad_4c_2, data = boston.rm2)
+summary(model.rm2)
+par(mfrow=c(2,2))
+plot(model.rm2)
+crPlots(model.rm2, ask=FALSE)
+```
+
+De esta forma vemos como se corrige bastante la curvatura del residuo parcial y, además, se mejora un poco más el valor de $R^2$. También podríamos, en lugar de sustituir `rm` por `rm2`, introducir las dos variables. De esta forma podríamos capturar el total del comportamiento polinómico de esta variable:
+
+```{r}
+boston.rm2 <- boston.cat.rad2.yout %>% 
+                mutate(rm2 = rm^2)
+
+model.rm.rm2 <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + rm2 + tax + ptratio + 
+                         black + lstat + dis_3c + rad_4c_2, data = boston.rm2)
+summary(model.rm.rm2)
+par(mfrow=c(2,2))
+plot(model.rm.rm2)
+crPlots(model.rm.rm2, ask=FALSE)
+```
+
+Por lo que obtenemos, este cambio produce resultados interesantes: en primer lugar, el valor de $R^{2}_{\mathrm{adj}}$ aumenta bastante (alcanzamos 0.8345). En segundo lugar, la figura de residuos parciales vs valores ajustados se ha corregido bastante y parece que nos acercamos bastante a obtener la homocedasticidad (media de los residuos igual a cero). Lo que también se observa es que las gráficas de los residuos parciales de `rm` y `rm2` ahora son un poco más extrañas, ya que presentan una dependencia muy lineal. Se cree que esto puede ser porque habría que considerarlas a la vez, pero habría que mirarlo con detalle. Finalmente, parece que la curvatura que presentaba `lstat` en los residuos parciales también se ha corregido bastante, aún así exploraremos ahora las transformaciones de esta variable.
+
+## Transformación de `lstat`
+
+A partir de los residuos parciales de los que partíamos originalmente podíamos pensar que la variable `lstat` se beneficiaría o bien de una transformación logarítmica.
+
+```{r}
+boston.loglstat <- boston.cat.rad2.yout %>% 
+                mutate(loglstat = log(lstat))
+
+model.loglstat <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + tax + ptratio + 
+                         black + loglstat + dis_3c + rad_4c_2, data = boston.loglstat)
+summary(model.loglstat)
+par(mfrow=c(2,2))
+plot(model.loglstat)
+crPlots(model.loglstat, ask=FALSE)
+```
+
+Vemos que, efectivamente, esta transformación corrige la curvatura del residuo parcial de `lstat` y nos permite mejorar también nuestra $R^2$ hasta 0.823. Por su parte, también se corrige la curvatura de los residuos vs valores ajustados aunque sigue sin ser homocedastica. Podríamos volver a repetir el truco anterior de añadir las dos variables a la vez, pero vemos que no obtenemos ya demasiada mejoría, asi que no consideramos que sea tan necesario como en el caso anterior. Eso sí, se corrige aún más la gráfica de los residuos.
+
+```{r}
+boston.loglstat <- boston.cat.rad2.yout %>% 
+                mutate(loglstat = log(lstat))
+
+model.loglstat <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + tax + ptratio + 
+                         black + lstat + loglstat + dis_3c + rad_4c_2, data = boston.loglstat)
+summary(model.loglstat)
+par(mfrow=c(2,2))
+plot(model.loglstat)
+crPlots(model.loglstat, ask=FALSE)
+```
+
+## Transformación de `rm` y `lstat` conjuntamente
+
+Para terminar con las transformaciones de las variables podemos juntar todo lo extraído en secciones anteriores y entrenar un modelo que tenga tanto `rm` como `rm2` y `loglstat`:
+
+```{r}
+boston.trans <- boston.cat.rad2.yout %>% 
+                mutate(rm2 = rm^2,
+                       loglstat = log(lstat))
+
+model.trans <- lm(formula = (medv^lambda - 1)/lambda ~ crim + chas + nox + rm + rm2 + tax + ptratio + 
+                         black + loglstat + dis_3c + rad_4c_2, data = boston.trans)
+summary(model.trans)
+par(mfrow=c(2,2))
+plot(model.trans)
+crPlots(model.trans, ask=FALSE)
+```
+
+Este modelo obtiene tan buenos valores de $R^2$ como el modelo sin `loglstat` pero la gráfica de residuos nos sale peor, así que finalmente repetiremos el proceso de selección de características `stepwise` con todas las variables nuevas que hemos creado para obtener el modelo final.
+
+## Repetición de la selección de características
+
+```{r}
+model.trans <- lm((medv^lambda-1)/lambda ~ ., data = boston.trans)
+cat.step.trans <- step(model.trans, trace = 0)
+summary(cat.step.trans)
+par(mfrow=c(2,2))
+plot(cat.step.trans)
+```
+
+Tras la ejecución vemos que este modelo utiliza más variables y ha incluido tanto las variables que hemos creado como las variables originales, algo bastante curioso ya que no obteníamos mucha mejoría al introducir `lstat` y `loglstat` a la vez, pero parece que si que influyen en la elección del resto de variables. Respecto a la representación de los residuos vemos que es un poco peor que en el caso anterior donde prácticamente habíamos corregido la heterocedasticidad, pero creemos que se compensa al obtener mejor valor de $R^2$ ya que buscamos un modelo predictivo. Los valores de $R^2$ y $R^2_{\mathrm{adj}}$ respectivamente son 0.8435 y 0.839, que son los valores más altos que hemos obtenido en todo el experimento.
+
+# Obtén la predicción para una vivienda en la mediana de los predictores del modelo.
+
+Para obtener la predicción para una vivienda en la mediana de los predictores simplemente tenemos que calcularla e introducirla en el modelo. Hay que tener cuidado con las variables categóricas ya que deberíamos utilizar la moda en su lugar. Hay que tener en cuenta que hemos transformado también la variable respuesta, por lo que para obtener el valor real de la predicción tenemos que deshacer la transformación:
+
+$$
+y = (y'\lambda + 1)^{1/\lambda}
+$$
+
+La forma más sencilla de hacer esto es utilizando la función `lapply()`, pero para ello tendremos que definir una función que calcule la mediana o la moda dependiendo de si introducimos un factor o no:
+
+```{r}
+get_median_mode <- function(column){
+  if (class(column)=="factor"){
+    return(Mode(column)[1])
+  }
+  else{
+    return(median(column))
+  }
+}
+```
+
+
+```{r}
+res <- lapply(boston.trans, get_median_mode)
+
+prediction <- predict(model.trans, newdata = res)
+prediction.real <- (prediction*lambda + 1)^(1/lambda)
+prediction.real
+```
+
+# Calcula el error de tu predicción por Bootstrap.
+
+Los métodos de bootstrap consisten en reutilizar los datos para construir múltiples bancos de datos que son analizados posteriormente. Son muy útiles para cuantificar la incertidumbre sobre un estimador o método, y son fáciles de implementar. La idea principal consiste en samplear cierta cantidad de muestras del conjunto de datos para entrenar un modelo y realizar la predicción que deseamos. Este proceso se repite varias veces sampleando de forma distinta el conjunto de datos, por lo que obtenemos varios resultados para nuestra predicción, lo que nos permite calcular el error de la predicción.
+
+Podemos hacerlo a mano o utilizando la librería `boot`, nosotros utilizaremos `boot` para explorar su funcionamiento:
+
+```{r}
+B <- 1000
+
+boot.fun <- function(data, indice, x){
+  model <- lm((medv^lambda - 1)/lambda ~ crim + indus + chas + 
+    nox + rm + tax + ptratio + black + lstat + dis_3c + rad_4c_2 + 
+    rm2 + loglstat, data=data, subset = indice)
+  prediction <- predict(model, newdata = x)
+  prediction.real <- (prediction*lambda + 1)^(1/lambda)
+  return(prediction.real)
+}
+
+set.seed(42)
+res.boot <- boot(boston.trans, boot.fun, B, x=res)
+summary(res.boot)
+```
+
+Podemos ver que el error estándar de la predicción es aproximadamente del `r round(summary(res.boot)$bootSE / summary(res.boot)$original * 100,2)`%. Podemos estar contentos porque no es un error alto.
