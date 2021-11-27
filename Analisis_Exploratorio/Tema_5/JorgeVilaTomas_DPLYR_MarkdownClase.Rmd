@@ -1,0 +1,498 @@
+---
+title: "Exportación e Importación en R. Manejo de dataframes con dplyr"
+author: "Jorge Vila Tomás"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+```{r, include=FALSE}
+library(tidyverse)
+library(haven)
+library(readxl)
+library(ggplot2)
+rm(list=ls())
+```
+
+
+# Paquete DPLYR
+
+```{r, include=FALSE}
+library(dplyr)
+rm(list=ls())
+```
+
+## Introducción
+
+* El paquete dplyr fue desarrollado por Hadley Wicham, trabajador de RStudio.
+
+* DPLYR constituye una versión optimizada de plyr (que fue desarrollado por el mismo Wicham).
+
+* Como veremos, DPLYR no introduce ninguna nueva funcionalidad en R, no obstante su uso introduce una considerable simplificación de las mismas.
+
+* La mayoría de funciones están implementadas en C++, proporcionando funciones optimizadas y de muy rápida ejecución.
+
+* DPLYR proporciona una “gramática” para llevar a cabo acciones cotidianas en el análisis de datos con data frames.
+
+DPLYR es un paquete que contiene una serie de funciones para manejar y manipular data frames de manera sencilla. Las funciones de este paquete son:
+
+
+* `select`: permite seleccionar una subconjunto de columnas de un data frame.
+* `filter`: permite seleccionar un subconjunto de muestras (filas) de un data frame en base a condiciones lógicas.
+* `arrange`: permite reordenar las muestras (filas) de un data frame.   
+* `rename`: permite renombrar las variables de un data frame.
+* `mutate`: permite añadir nuevas columnas a partir de transformaciones de otras variables existentes.
+* `summarise`: permite obtener estadísticos básicos de las variables del data frame.
+* `%>%`: Operador “tubería” permite encadenar diferentes funciones.
+
+Como hemos visto cada una de estas funciones se encarga de una tarea diferente en el manejo de data frames. No obstante, tiene en comúm las siguientes opciones de manejo:
+
+* El primer argumento es el data frame sobre el que queremos aplicar la función.
+* Los siguientes argumentos indicarán que acción vamos a llevar a cabo en el data frame y sobre que columnas (cuando proceda) actuará sin utilizar el operador $ (sólo con los nombres de las variables).
+* El resultado de aplicar una función de dplyr será otro data frame. 
+* En el nuevo data frame cada fila será una muestra y cada columna una variable.
+
+
+En primer lugar vamos a instalar la librería y a cargarla.
+
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+
+
+
+Vamos a ver con una serie de ejemplos como se utiliza cada una de las funciones de DPLYR con un dataframe, para ello vamos a cargar (o mejor hacedlo vosotros...) el conjunto de datos que se encuentra en el fichero `Chicago.csv`. Este conjunto de datos contiene  datos climáticos y concentraciones  algunos contaminantes atmosféricos de la ciudad de Chicago.
+
+
+**EJERCICIO. Carga el data frame contenido en el fichero `chicago.rds` y guardalo en una variable denominada `Chicago`. Revisa las fucniones del paquete `readr` que hemos visto al principio de la clase. Qué tamaño tiene el data frame?. Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+library(readr)
+Chicago<-read_rds("chicago.rds")
+dim(Chicago)
+```
+
+
+# `select`
+
+ Vamos a empezar con la función `select`, esta función permite seleccionar un subconjunto de columnas del data frame a partir de los nombres de las mismas. Veamos un número reducido de muestras de las 5 primeras columnas del data frame. Haremos ésto utilizando `select` o sin utilizarlo.
+ 
+ 
+```{r}
+#Utilizando select
+head(select(Chicago,1:5))
+
+#Sin utilizar select
+head(Chicago[,1:5])
+```
+
+
+Aparentemente no hemos ganado mucho utilizando `select` para implementar este ejemplo. Cuando utilizamos los índices del data frame no adelantamos mucho. Veamos que pasa si utilizamos los nombres de las columnas. Supongamos que queremos obtener el contenido de las columnas que van desde la columna "dptp" hasta la columna "pm25tmean2" en las primeras muestras del data frame.
+
+```{r}
+head(select(Chicago,dptp:pm25tmean2))
+```
+
+
+Puede parecer una funcionalidad trivial, pero no lo es!. Cuando manejamos conjuntos de datos con muchas columnas, trabajar con los nombres de las columnas para indexar subconjuntos del data frame facilita mucho la vida!. Veamos el siguiente ejemplo, supongamos que queremos mostrar las primeras muestras del data frame  sin las columnas desde “city” hasta “dptp”. En primer lugar vamos a intentar hacerlo utilizando las funciones de base de R.
+
+
+```{r}
+i<-match("city", names(Chicago))
+j<-match("dptp", names(Chicago))
+head(Chicago[,-(i:j)])
+```
+
+Como podéis observar el código utilizando las funciones de base de R no es muy intuitivo.  Veamos como implementar la misma acción con `select`.
+
+```{r}
+head(select(Chicago,-(city:dptp)))
+```
+
+La función `select` no se limita a poder utilizar comodamente los nombres de las columnas para fltrar, también podemos utilizar criterios de selección más complejos. Imaginemos que queremos seleccionar únicamente las columnas cuyo nombre terminen en 2.
+
+```{r}
+TerminadasEn2<-select(Chicago,ends_with("2"))
+head(TerminadasEn2)
+```
+
+Del mismo modo podemos elegir las columnas cuyo nombre empiecen por "d" o por otra cadena de texto.
+
+```{r}
+EmpicenPor_d<-select(Chicago,starts_with("d"))
+head(EmpicenPor_d)
+```
+
+Aquí podemos ver las opciones de `select`
+
+* `starts_with()`: Busqueda de cadena de comienzo
+* `ends_with()`: Busqueda de cadena de finalización
+* `contains()`: Contiene una cadena de texto
+* `matches()`: Verifica una expresión regular
+* `one_of()`: Busqueda en un vector de caracteres
+
+**EJERCICIO. Resuelve los siguientes cuestiones relacionadas con select(). Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+* **Consigue un data frame con las variables de Chicago que empiezan por "pm".** 
+
+```{r}
+select(Chicago, starts_with("pm"))
+```
+
+* **Consigue un dataframe en Chicago con las variables que terminan por "p".** 
+
+```{r}
+select(Chicago, ends_with("p"))
+```
+
+* **Consigue un data frame de Chicago que contenga la cadena de caracteres "mean". **
+
+```{r}
+select(Chicago, contains("mean"))
+```
+
+* **Consigue un data frame con las variables de Chicago que empicen por "pm" y terminen en "2". **
+
+```{r}
+select(Chicago, (starts_with("pm") & ends_with("2")))
+```
+
+* **Consigue un data frame de chicago con las variables que empiezan por "pm" o terminan por "tm".**
+
+```{r}
+select(Chicago, (starts_with("pm") & ends_with("tm")))
+```
+
+* **Crea un data frame que contenga las variables "date", "city" y "pm10tmean2" (en ese orden). **
+
+```{r}
+select(Chicago, c(date, city, pm10tmean2))
+```
+
+* **Crea un data frame que NO contenga las variables anteriores. **
+
+```{r}
+select(Chicago, -c(date, city, pm10tmean2))
+```
+
+# `filter`
+
+La función `filter` de DPLYR sirve para filtrar muestras de un data frame en base a algún criterio. Por ejemplo, imaginemos que queremos quedarnos únicamente con las muestras que verifiquen que la variable "pm25mean2" tome un valor mayor que 30.
+
+```{r}
+ExclusionFilter1<-filter(Chicago,pm25tmean2 > 30)
+head(ExclusionFilter1)
+```
+
+También podemos utilizar condiciones lógicas más complejas para hacer filtrado de muestras con `select`. Imaginemos que queremos seleccionar muestras que verifiquen que la variable "pm25mean2" toma valores mayores de 30 y la variable "tmpd" tome valores mayores de 80. 
+
+```{r}
+ExclusionFilter2<-filter(Chicago,pm25tmean2 > 30 & tmpd > 80)
+head(ExclusionFilter2)
+```
+
+Multiples argumentos en `select` son equivalentes a utilizar una operación de and. El siguiente segmento de código haría lo mismo que el anterior. 
+
+```{r}
+ExclusionFilter2_Equivalente<-filter(Chicago,pm25tmean2 > 30, tmpd > 80)
+head(ExclusionFilter2)
+```
+
+O imaginemos que queremos seleccionar muestras que verifiquen que la variable "pm25mean2" toma valores mayores de 30 o que la variable "tmpd" tome valores mayores de 80. 
+
+```{r}
+ExclusionFilter3<-filter(Chicago,pm25tmean2 > 30 | tmpd > 80)
+head(ExclusionFilter2)
+```
+
+**EJERCICIO. Resuelve los siguientes cuestiones relacionadas con filter(). Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+* **Consigue un data frame con las muestras de chicago cuyo valor de la variable “o3tmean2” toma un valor mayor que 3.3.**
+
+```{r}
+filter(Chicago, o3tmean2 > 3.3)
+```
+
+* **Consigue un data frame con las muestras de chicago cuyo valor de la variable “o3tmean2” toma un valor mayor que 3.3 y de la variable “no2tmean2” toma un valor mayor que 20.**
+
+```{r}
+filter(Chicago, o3tmean2 > 3.3 & no2tmean2 > 20)
+```
+
+* **Consigue un data frame con las muestras de chicago cuyo valor de la variable “pm25tmean2” toma un valor mayor que 35.4 o en la variable “pm10tmean2” toma un valor mayor que 35.0.**
+
+```{r}
+filter(Chicago, pm25tmean2 > 35.4 | pm10tmean2 > 35.0)
+```
+
+* **Consigue un data frame que cumpla los criterios de filtrado del ejercicio anterior y sólo contenga las variables “pm25tmean2” y “pm10tmean2”. **
+
+```{r}
+select(filter(Chicago, pm25tmean2 > 35.4 | pm10tmean2 > 35.0), c(pm25tmean2, pm10tmean2))
+```
+
+* **Consigue un subconjunto de chicago con las muestras que verifican que la variable pm10tmean2 no disponga de dato (NA).**
+
+```{r}
+filter(Chicago, !is.na(pm10tmean2))
+```
+
+# `arrange`
+
+La función `arrange` de DPLYR sirve para ordenar las muestras en un data frame en base al valor de algunas de las variables manteniendo el resto  de variables con la nueva ordenación. Por ejemplo imaginemos que queremos ordenar el data frame chicago en base a la variable "date".
+
+```{r}
+Ordenacion1<-arrange(Chicago, date)
+head(Ordenacion1)
+```
+
+Del mismo modo podemos hacer una ordenación en orden descendente con la opción `desc()`.
+
+```{r}
+Ordenacion2<-arrange(Chicago, desc(date))
+head(Ordenacion2)
+```
+
+Podríamos pensar que únicamente podemos ordenar un data frame en base a una variable de tipo "Date", pero no es así. Probemos a realizar la ordenación del conjunto chicago en base a la variable "pm25tmean2".
+
+```{r}
+Ordenacion3<-arrange(Chicago, pm25tmean2)
+head(Ordenacion3)
+
+Ordenacion4<-arrange(Chicago, desc(pm25tmean2))
+head(Ordenacion4)
+```
+
+Podemos, incluso, realizar ordenaciones jerarquizadas por el orden que se colocan en la función `arrange` varias variables. Por ejemplo imaginemos que queremos ordenar el conjunto chicago en base a la variable "tmpd" en orden creciente y en los casos en los que "tmpd" sea igual las muestras se ordenen por el valor de la variable "date" en orden descendente.
+
+```{r}
+Ordenacion5<-arrange(Chicago, tmpd, desc(date))
+head(Ordenacion5)
+```
+
+**EJERCICIO. Resuelve los siguientes cuestiones relacionadas con arrange(). Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio ** 
+
+* **Consigue un data frame con las muestras de chicago ordenadas de mayor a menor valor de la variable "o3tmean2".**
+
+```{r}
+arrange(Chicago, desc(o3tmean2))
+```
+
+* **Consigue un data frame con las muestras de chicago ordenadas de menor a mayor valor de la variable “dptp”.**
+
+```{r}
+arrange(Chicago, dptp)
+```
+
+* **Consigue un data frame con las muestras de chicago ordenadas de menor a mayor valor de la variable “no2tmean2” y que sólo contenga las variables “no2tmean2” y “date”.**
+
+```{r}
+select(arrange(Chicago, no2tmean2), c(no2tmean2, date))
+```
+
+* **Consigue un data frame con las muestras de chicago adquiridas entre el “1998-01-01” y el “2000-01-01” ordenadas de menor a mayor valor de la variable “pm10tmean2”,  y que sólo contenga las variables  “pm10tmean2”,  “no2tmean2” y “date”. **
+
+```{r}
+select(arrange(filter(Chicago, date >= as.Date('1998-01-01') & date <= as.Date('2000-01-01')), pm10tmean2), c(pm10tmean2, no2tmean2, date))
+```
+
+#`rename`
+
+El nombre de esta función de DPLYR, `rename`, es bastante explicito y sirve para renombrar las columnas de un data frame. Veamos como utilizarla, vamos a renombrar una las variables "dptp" y "pm25tmean2" por los nombres "dewpoint" y "pm25" respectivamente.
+
+```{r}
+Renombrado1<-rename(Chicago, dewpoint=dptp, pm25=pm25tmean2)
+head(Renombrado1)
+```
+ 
+ En primer lugar colocamos el nuevo nombre y después del igual el nombre original de la variable. De esta manera tan simple renombramos variables en un data frame.
+ 
+# `mutate`
+ 
+ La función `mutate` de DPLYR sirve para añadir nuevas columnas a un data frame a partir de una combinación de otras columnas del data frame. la forma de utilizar `mutate` consiste en explicitar el nombre de la nueva variable y la expresión que define la nueva variable. Imaginemos que queremos conseguir un data frame que contiene todas las columnas de chicago y una nueva columna que se denominará "pm10detrend" y que se calculará como la resta entre la columna "pm10tmean2" y su valor medio.
+ 
+```{r}
+Mutacion1<-mutate(Chicago, pm10detrend=pm10tmean2-mean(pm10tmean2, na.rm=TRUE))
+head(Mutacion1)
+```
+
+# `transmute`
+ 
+ La función `transmute` de DPLYR funciona igual que `mutate` con la única diferencia que las variables que intervienen en la formula desparecen del data frame. Imaginemos que queremos conseguir un data frame que sólo contendrá las variables transformadas "pm10detrend" y "o3detrend", estas se calcularán a partir de la resta de sus valores medios.
+
+
+```{r}
+Mutacion2<-transmute(Chicago, pm10detrend=pm10tmean2-mean(pm10tmean2, na.rm=TRUE),
+                     o3detrend=o3tmean2-mean(o3tmean2, na.rm=TRUE))
+head(Mutacion2)
+```
+
+**EJERCICIO. Resuelve los siguientes cuestiones relacionadas con arrange(). Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio **
+
+* **Consigue un data frame que contenga únicamente las variables por “tmpd”, “date” y “no2tmean2” renombradas a “temperatura”, “fecha” y “no2”. **
+
+```{r}
+Chicago_tmp_fecha_no2 <- rename(select(Chicago, c(tmpd, date, no2tmean2)),
+                                temperatura = tmpd,
+                                fecha = date,
+                                no2 = no2tmean2)
+Chicago_tmp_fecha_no2
+```
+
+* **Añade una nueva variable al data frame anterior cuyo nombre sea “temp_estandar” obtenida a partir de restar a “temp” su media y después dividir por su desviación típica.  A este proceso se le denomina estandarizar una variable.**
+
+```{r}
+Chicago_2 <- mutate(Chicago_tmp_fecha_no2,
+                    temp_estandar = (temperatura - mean(temperatura, na.rm = TRUE))/sd(temperatura, na.rm = TRUE))
+Chicago_2
+```
+
+* **Consigue un nuevo data frame a partir del obtenido en el apartado anterior  con los valores de “temp_estandar” positivos. Ordena el data frame anterior por la variable “fecha” de mayor a menor.**
+
+```{r}
+Chicago_3 <- arrange(filter(Chicago_2, temp_estandar > 0), desc(filter(Chicago_2, temp_estandar > 0)$fecha))
+Chicago_3
+```
+
+* **Consigue un data frame, a partir del data frame chicago, que contenga como variables la variable "date" y las variables “o3tmean2”, “no2tmean2”  estandarizadas y con nombres “o3_estandar” y “no2_estandar" utilizando transmute. **
+
+```{r}
+Chicago_4 <- transmute(Chicago, date = date,
+                                o3_estandar = (o3tmean2 - mean(o3tmean2, na.rm = TRUE))/sd(o3tmean2, na.rm = TRUE),
+                                no2_estandar = (no2tmean2 - mean(no2tmean2, na.rm = TRUE))/sd(no2tmean2, na.rm = TRUE))
+Chicago_4
+```
+
+* **Ordena el data frame anterior por fecha y realiza dos gráficos que representen la evolución temporal de las variables “o3_estandar” y “no2_estandar.  **
+
+```{r}
+Chicago_4_arr <- arrange(Chicago_4, date)
+
+plot(Chicago_4_arr$o3_estandar, type = 'l', main = "O3 (Estandarizado)")
+plot(Chicago_4_arr$no2_estandar, type = 'l', main = "NO2 (Estandarizado)")
+```
+
+# `group_by`
+
+La función `group_by` permite obtener agrupaciones de datos dentro de un data frame con el fin de calcular estadísticos en cada uno de esos grupos. Veamos un ejemplo, imaginemos que queremos incluir una nueva variable denominada "tempcat" que es de tipo `factor` y que toma el valor "Frío" si la temperatura es menor de 75 y "Caliente" si la temperatura es mayor de 75. Para ello utilizaremos la función `mutate` y la función factor.
+
+
+```{r}
+subset<-mutate(Chicago, tempcat=factor(1*(tmpd>75), labels=c("Frio", "Caliente")))
+```
+
+Mediante la función `group_by` obtenemos un objeto que luego podrá ser utilizado por la función `summarise()` para calcular los estadísticos que queramos (media, máximo, mediana, etc) calculados por los grupos definidos. Imaginemos que queremos calcular la media de la variable "pm25tmean2", el valor máximo de la variable "o3tmean2" y la mediana de la variable "no2tmean2" en los grupos "Frío" y "Caliente".
+
+```{r}
+frio_caliente<-group_by(subset,tempcat)
+
+summarise(frio_caliente, pm25mean=mean(pm25tmean2, na.rm=TRUE),
+          o3max=max(o3tmean2, na.rm=TRUE),
+          no2median=median(no2tmean2, na.rm=TRUE))
+```
+
+Puede parecer un poco lioso, pero no lo es!. Veamos otro ejemplo imaginemos que queremos conocer la media de las variables "no2tmean2" y y "o3tmean2" en las distribuciones de datos definidas por los cuartiles de la variable "pm25tmean2". Parece un trabalenguas....
+
+```{r}
+cuartiles<-quantile(Chicago$pm25tmean2, seq(0,1,0.25),na.rm=TRUE) #Obtenemos los cuartiles de pm25
+subset2<-mutate(Chicago,pm25_cuartiles=cut(pm25tmean2,cuartiles)) # Añadimos la columna Chicago
+cuart_pm25<-group_by(subset2,pm25_cuartiles)
+summarise(cuart_pm25, o3=mean(o3tmean2,na.rm=TRUE),
+          no2=mean(no2tmean2,na.rm=TRUE))
+```
+
+**EJERCICIO. Los niveles de ozono (o3tmean2) son peligrosos a partir de 50 ppm, crea una nueva variable denominada “peligro” categorizada en  dos niveles “Peligroso”/“Seguro” dependiendo de que los niveles de ozono sean mayores o menores de 50. Obtén una tabla con los valores medios de las variables pm25tmean2 y pm10tmean2 de las muestras con niveles peligrosos y seguros de ozono. Obten los valores máximos de las variables "o3tmean2" y "pm25tmean2" en los diferentes cuartiles de la variable "pm10tmean2". Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+## Podemos utilizar la función if_else de dplyr o ifelse del paquete base
+Chicago_Peligro <- mutate(Chicago, peligro = as.factor(if_else(o3tmean2>50, "Peligroso", "Seguro")))
+
+## Valores medios de pm25tmean2 y pm10tmean2
+summarise(group_by(Chicago_Peligro, peligro),
+          pm25tmean2_mean = mean(pm25tmean2, na.rm = TRUE),
+          pm10tmean2_mean = mean(pm10tmean2, na.rm = TRUE))
+```
+```{r}
+## Maximos de o3tmean2 y pm25tmean2 en los cuartiles de pm10tmean2
+cuartiles <- quantile(Chicago$pm10tmean2, seq(0,1,0.25),na.rm=TRUE) #Obtenemos los cuartiles de pm10
+Chicago_Peligro_2 <- mutate(Chicago_Peligro, pm10tmean2_cuart = cut(pm10tmean2, cuartiles))
+summarise(group_by(Chicago_Peligro_2, pm10tmean2_cuart),
+          pm25tmean2_max = max(pm25tmean2, na.rm = TRUE),
+          o3tmean2_max = max(o3tmean2, na.rm = TRUE))
+```
+
+# `%>%` operador pipeline
+
+Por último vamos a hablar del operador pipeline o "tubería", este operador permite aplicar varias funciones de DPLYR de manera consecutiva. Las funciones  se ejecutarán en orden de izquierda a derecha, y la salida de la operación previa se convertirá en el data frame argumento de la operación siguiente.
+
+Veamos un ejemplo, imaginemos que queremos obtener el valor medio de de las variables "pm25tmean2", "o3tmean2" y "no2tmean2" en cada mes del año. Esa operación la queremos hacer concatenando operaciones con la el ooperador `%>%`.
+
+```{r}
+Chicago %>% mutate(month=as.POSIXlt(date)$mon+1) %>% group_by(month) %>%
+  summarise(pm25=mean(pm25tmean2,na.rm=TRUE),o3=mean(o3tmean2,na.rm=TRUE),
+            no2=mean(no2tmean2, na.rm=TRUE))
+
+
+```
+
+
+**EJERCICIO Utiliza el operador %>% para realizar las siguientes operaciones con una sola instrucción. 1)A partir del data frame chicago, selecciona las variables date, tmp y o3tmean2. 2)Únicamente queremos las muestras que verifican que la variable o3tmean2 es mayor que 20 ppm. 3)Cambia el nombre de las variables del data frame por fecha, temperatura y o3. 4)Añade una nueva columna con la variable ozono pero estandarizada y llámala o3_estandar. Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+Chicago %>% 
+  select(c(date, tmpd, o3tmean2)) %>% 
+  filter(o3tmean2 > 20) %>% 
+  rename("fecha" = date, "temperatura" = tmpd,"o3" = o3tmean2) %>% 
+  mutate(o3_estandar = (o3-mean(o3, na.rm = TRUE))/sd(o3, na.rm = TRUE))
+```
+
+**EJERCICIO Carga el fichero de datos "PrediccionEnfardadoras.Rdata". Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+load("PrediccionEnfardadoras.Rdata")
+```
+
+**EJERCICIO Crea un data frame que contenga las variables "tipo", "matricula", "num_producto", "num_serie", "dia" y todas las alarmas (variables del tipo a1, a2, ....). Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+Enfardadoras_2 <- Enfardadoras %>% 
+                    select(c(tipo, matricula, num_producto, num_serie, dia), matches("a\\d+"))
+colnames(Enfardadoras_2)
+```
+
+**EJERCICIO Representa gráficamente la evolución temporal de la variable "a3" para la máquina cuya matricula es "00.50.C2.C2.E6.07". Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+Enfardadoras_2 %>% 
+  filter(matricula == "00.50.C2.C2.E6.07") %>% 
+  arrange(dia) %>% 
+  select(dia, a3) %>% 
+  ggplot(aes(x = dia, y = a3)) + 
+  geom_line() + 
+  ggtitle("Evolución de a3 con el tiempo")
+```
+
+**EJERCICIO Representa gráficamente la evolución temporal de la variable `p_orden`desde el 1 de enero de 2016 hasta la actualidad para la máquina cuya matricula es "00.50.C2.C2.E7.28". Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+Enfardadoras %>% 
+  filter((matricula == "00.50.C2.C2.E7.28") & (dia > "2016-01-01")) %>% 
+  arrange(dia) %>% 
+  select(dia, p_orden) %>% 
+  ggplot(aes(x = dia, y = p_orden)) + 
+  geom_line() + 
+  ggtitle("Evolución de p_orden con el tiempo a partir del 1 de Enero de 2016")
+```
+
+**EJERCICIO Obtén un ranking ordenado de las 30 máquinas con una probabilidad de orden promedio mayor. Utiliza el operador pipeline para hacerlo de manera más compacta . Añade un Chunk  al fichero de R Notebook sobre el que estamos trabajando con el código que resuelve el ejercicio  **
+
+```{r}
+Enfardadoras %>% 
+  group_by(matricula) %>% 
+  summarise(p_orden_media = mean(p_orden)) %>% 
+  arrange(desc(p_orden_media)) %>% 
+  head(30)
+```
+
+
